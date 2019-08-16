@@ -1,0 +1,8 @@
+[package]
+name = "bomberust-server"
+version = "0.1.0"
+authors = ["Sébastien Blin <amarok@enconn.fr>"]
+edition = "2018"
+
+[dependencies]
+rand="0.7"
