@@ -68,17 +68,16 @@ impl Distribution<Direction> for Standard {
 pub enum SquareType {
     Water,
     Empty,
-    Block,
     Wall(Direction),
+    Block, /* Not randomly generated */
 }
 
 impl Distribution<SquareType> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> SquareType {
-        match rng.gen_range(0, 4) {
+        match rng.gen_range(0, 22) {
             0 => SquareType::Water,
-            1 => SquareType::Empty,
-            2 => SquareType::Block,
-            _ => SquareType::Wall(rand::random()),
+            1 => SquareType::Wall(rand::random()),
+            _ => SquareType::Empty,
         }
     }
 }
@@ -115,10 +114,23 @@ impl Map {
     pub fn new(w: u32, h: u32) -> Map {
         let size = (w * h) as usize;
         let mut squares = Vec::with_capacity(size);
+        let mut x = 0;
+        let mut y = 0;
         for _ in 0..size {
+            let mut sq_type = rand::random();
+            if x % 2 == 1 && y % 2 == 1 {
+                sq_type = SquareType::Block;
+            }
             squares.push(Square {
-                sq_type: rand::random()
+                sq_type
             });
+
+            // Next square
+            x += 1;
+            x %= w;
+            if x == 0 {
+                y += 1;
+            }
         }
         Map {
             w,

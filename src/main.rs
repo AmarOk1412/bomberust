@@ -32,6 +32,6 @@ pub mod bomberust;
 use bomberust::Map;
 
 fn main() {
-    let m = Map::new(64, 16);
+    let m = Map::new(13, 11);
     print!("{}", m);
 }
