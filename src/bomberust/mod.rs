@@ -39,13 +39,13 @@ pub enum Shape {
 }
 
 pub struct Bomb {
-    pub radius: u32,
+    pub radius: usize,
     pub shape: Shape,
     pub created_time: u64,
     pub duration: Duration
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Direction {
     North,
     South,
@@ -64,7 +64,7 @@ impl Distribution<Direction> for Standard {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum SquareType {
     Water,
     Empty,
@@ -101,25 +101,46 @@ impl Item for Bomb {
     }
 }
 
+pub struct DestructibleBox {
+    
+}
+
+impl Item for DestructibleBox {
+    fn walkable(&self, _p: Player) -> bool {
+        false
+    }
+}
+
+type InteractiveItem = Box<dyn Item>;
+
 pub struct Map {
-    pub w: u32,
-    pub h: u32,
+    pub w: usize,
+    pub h: usize,
     pub squares: Vec<Square>,
     pub players: Vec<Player>,
-    pub items: Vec<Box<dyn Item>>,
+    pub items: Vec<Option<InteractiveItem>>,
 
 }
 
 impl Map {
-    pub fn new(w: u32, h: u32) -> Map {
+    pub fn new(w: usize, h: usize) -> Map {
         let size = (w * h) as usize;
         let mut squares = Vec::with_capacity(size);
+        let mut items: Vec<Option<InteractiveItem>> = Vec::with_capacity(size);
         let mut x = 0;
         let mut y = 0;
+        let mut rng = rand::thread_rng();
         for _ in 0..size {
             let mut sq_type = rand::random();
             if x % 2 == 1 && y % 2 == 1 {
                 sq_type = SquareType::Block;
+            }
+
+            let add_box: u8 = rng.gen();
+            if add_box % 3 != 0 && sq_type == SquareType::Empty {
+                items.push(Some(Box::new(DestructibleBox {})));
+            } else {
+                items.push(None);
             }
             squares.push(Square {
                 sq_type
@@ -137,7 +158,7 @@ impl Map {
             h,
             squares,
             players: Vec::new(),
-            items: Vec::new()
+            items
         }
     }
 }
@@ -149,7 +170,12 @@ impl fmt::Display for Map {
         for sq in &self.squares {
             match sq.sq_type {
                 SquareType::Water => map_str.push('W'),
-                SquareType::Empty => map_str.push('X'),
+                SquareType::Empty => {
+                    match self.items[x] {
+                        Some(_) => map_str.push('D'),
+                        _ => map_str.push('X')
+                    }
+                },
                 SquareType::Block => map_str.push('B'),
                 SquareType::Wall(d) => {
                     match d {
