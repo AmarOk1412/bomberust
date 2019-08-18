@@ -29,9 +29,9 @@ extern crate rand;
 
 pub mod bomberust;
 
-use bomberust::Map;
+use bomberust::Game;
 
 fn main() {
-    let m = Map::new(13, 11);
-    print!("{}", m);
+    let mut g = Game::new();
+    g.start();
 }
