@@ -25,6 +25,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
+use std::thread;
 use std::time::{Duration, Instant};
 
 pub mod map;
@@ -130,6 +131,8 @@ impl Game {
                 println!("New turn");
                 println!("{}", self.map);
             }
+
+            thread::sleep(Duration::from_millis(10));
         }
     }
 }
