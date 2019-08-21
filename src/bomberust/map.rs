@@ -31,13 +31,6 @@ use rand::{
     Rng,
 };
 
-#[derive(Clone)]
-pub enum Shape {
-    Cross,
-    Square,
-    Circle
-}
-
 pub struct BombItem {}
 
 #[derive(Clone, Copy, PartialEq)]
@@ -90,6 +83,8 @@ pub struct MapPlayer {
 
 pub trait Walkable {
     fn walkable(&self, p: &MapPlayer, pos: &(usize, usize)) -> bool;
+
+    fn explode_event(&self, pos: &(usize, usize), bomb_pos: &(usize, usize)) -> (bool /* block */, bool /* destroy item */);
 }
 
 
@@ -100,6 +95,10 @@ pub trait Item: Walkable  {
 impl Walkable for BombItem {
     fn walkable(&self, _p: &MapPlayer, _pos: &(usize, usize)) -> bool {
         false
+    }
+
+    fn explode_event(&self, pos: &(usize, usize), bomb_pos: &(usize, usize)) -> (bool, bool) {
+        (bomb_pos.0 != pos.0 || bomb_pos.1 != pos.1, true)
     }
 }
 
@@ -118,6 +117,10 @@ impl Walkable for DestructibleBox {
     fn walkable(&self, _p: &MapPlayer, _pos: &(usize, usize)) -> bool {
         false
     }
+
+    fn explode_event(&self, _pos: &(usize, usize), _bomb_pos: &(usize, usize)) -> (bool, bool) {
+        (true, true)
+    }
 }
 
 impl Item for DestructibleBox {
@@ -134,13 +137,29 @@ impl Walkable for SquareType {
             SquareType::Empty => true,
             SquareType::Wall(w) => {
                 match w {
-                    Direction::North => p.x >= pos.0,
-                    Direction::South => p.x <= pos.0,
-                    Direction::West => p.y <= pos.1,
-                    Direction::East => p.y >= pos.1,
+                    Direction::West => p.x >= pos.0,
+                    Direction::East => p.x <= pos.0,
+                    Direction::North => p.y <= pos.1,
+                    Direction::South => p.y >= pos.1,
                 }
             },
             _ => false
+        }
+    }
+
+    fn explode_event(&self, pos: &(usize, usize), bomb_pos: &(usize, usize)) -> (bool, bool) {
+        match self {
+            SquareType::Empty => (false, true),
+            SquareType::Water => (false, false),
+            SquareType::Block => (true, false),
+            SquareType::Wall(w) => {
+                match w {
+                    Direction::North => (bomb_pos.1 == pos.1, bomb_pos.1 <= pos.1),
+                    Direction::South => (bomb_pos.1 == pos.1, bomb_pos.1 >= pos.1),
+                    Direction::West => (bomb_pos.0 == pos.0, bomb_pos.0 >= pos.0),
+                    Direction::East => (bomb_pos.0 == pos.0, bomb_pos.0 <= pos.0),
+                }
+            },
         }
     }
 }

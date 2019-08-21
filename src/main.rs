@@ -29,7 +29,7 @@ extern crate rand;
 
 pub mod bomberust;
 
-use bomberust::Game;
+use bomberust::game::Game;
 
 fn main() {
     let mut g = Game::new();

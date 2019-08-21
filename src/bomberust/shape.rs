@@ -25,6 +25,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-pub mod game;
-pub mod map;
-pub mod shape;
+#[derive(Clone)]
+pub enum Shape {
+    Cross,
+    Square,
+    Circle
+}
