@@ -25,6 +25,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
+use std::any::Any;
 use std::fmt;
 use rand::{
     distributions::{Distribution, Standard},
@@ -90,6 +91,8 @@ pub trait Walkable {
 
 pub trait Item: Walkable  {
     fn name(&self) -> String;
+
+    fn as_any(&self) -> &dyn Any;
 }
 
 impl Walkable for BombItem {
@@ -111,6 +114,10 @@ impl Item for BombItem {
     fn name(&self) -> String {
         String::from("Bomb")
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 impl Walkable for DestructibleBox {
@@ -126,6 +133,10 @@ impl Walkable for DestructibleBox {
 impl Item for DestructibleBox {
     fn name(&self) -> String {
         String::from("DestructibleBox")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -164,9 +175,89 @@ impl Walkable for SquareType {
     }
 }
 
+#[derive(Clone, PartialEq)]
+pub enum Bonus {
+    ImproveBombRadius,
+    PunchBombs,
+    ImproveSpeed,
+    RepelBombs,
+    MoreBombs,
+    Custom(String)
+}
 
+impl Distribution<Bonus> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Bonus {
+        match rng.gen_range(0, 4) {
+            0 => Bonus::ImproveBombRadius,
+            1 => Bonus::PunchBombs,
+            2 => Bonus::ImproveSpeed,
+            3 => Bonus::RepelBombs,
+            _ => Bonus::MoreBombs,
+        }
+    }
+}
 
+impl Walkable for Bonus {
+    fn walkable(&self, _p: &MapPlayer, _pos: &(usize, usize)) -> bool {
+        true
+    }
 
+    fn explode_event(&self, _pos: &(usize, usize), _bomb_pos: &(usize, usize)) -> (bool, bool) {
+        (true, true)
+    }
+}
+
+impl Item for Bonus {
+    fn name(&self) -> String {
+        String::from("Bonus")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+#[derive(Clone, PartialEq)]
+pub enum Malus {
+    Slow,
+    UltraFast,
+    SpeedBomb,
+    DropBombs,
+    InvertedControls,
+    Custom(String)
+}
+
+impl Distribution<Malus> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Malus {
+        match rng.gen_range(0, 4) {
+            0 => Malus::Slow,
+            1 => Malus::UltraFast,
+            2 => Malus::SpeedBomb,
+            3 => Malus::DropBombs,
+            _ => Malus::InvertedControls,
+        }
+    }
+}
+
+impl Walkable for Malus {
+    fn walkable(&self, _p: &MapPlayer, _pos: &(usize, usize)) -> bool {
+        true
+    }
+
+    fn explode_event(&self, _pos: &(usize, usize), _bomb_pos: &(usize, usize)) -> (bool, bool) {
+        (true, true)
+    }
+}
+
+impl Item for Malus {
+    fn name(&self) -> String {
+        String::from("Malus")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
 
 
 pub struct Map {
@@ -404,6 +495,10 @@ impl fmt::Display for Map {
                                 } else {
                                     map_str.push('b');
                                 }
+                            } else if i.name() == "Bonus" {
+                                map_str.push('O');
+                            } else if i.name() == "Malus" {
+                                map_str.push('M');
                             } else {
                                 map_str.push('u');
                             }

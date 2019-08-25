@@ -25,12 +25,13 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
+use rand::Rng;
 use std::cmp::{max, min};
 use std::collections::{HashSet, VecDeque};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use super::map::{Map, BombItem, Walkable};
+use super::map::{Bonus, BombItem, DestructibleBox, Malus, Map, Walkable};
 use super::shape::Shape;
 
 #[derive(Clone)]
@@ -94,7 +95,7 @@ impl Game {
             Action::PutBomb => {
                 let player = &self.map.players[player_id as usize];
                 if self.map.items[player.x + player.y * self.map.w].is_some() {
-                    println!("CANNOT START BOMB!");
+                    println!("CANNOT START BOMB!"); // TODO change with log
                     return;
                 }
                 self.map.items[player.x + player.y * self.map.w] = Some(Box::new(BombItem {}));
@@ -222,8 +223,25 @@ impl Game {
                                             if block {
                                                 bomb.exploding_info.as_mut().unwrap().blocked_pos.insert(pos);
                                             }
+
+                                            let db = self.map.items[pos.0 as usize + self.map.w * pos.1 as usize].as_ref().unwrap().as_any().downcast_ref::<DestructibleBox>();
+                                            match db {
+                                                Some(_) => {
+                                                    let mut rng = rand::thread_rng();
+                                                    let prob = rng.gen_range(0, 5);
+                                                    if prob == 1 || prob == 2 {
+                                                        let bonus : Bonus = rand::random();
+                                                        self.map.items[pos.0 as usize + self.map.w * pos.1 as usize] = Some(Box::new(bonus));
+                                                    } else if prob == 3 {
+                                                        let malus : Malus = rand::random();
+                                                        self.map.items[pos.0 as usize + self.map.w * pos.1 as usize] = Some(Box::new(malus));
+                                                    } else {
+                                                        self.map.items[pos.0 as usize + self.map.w * pos.1 as usize] = None;
+                                                    }
+                                                },
+                                                _ => {}
+                                            }
                                         }
-                                        self.map.items[pos.0 as usize + self.map.w * pos.1 as usize] = None;
                                         // Destroy players
                                         let mut p = 0;
                                         loop {
