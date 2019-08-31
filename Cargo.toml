@@ -6,3 +6,6 @@ edition = "2018"
 
 [dependencies]
 rand="0.7"
+tokio = { version = "0.1.6" }
+clap = "2"
+tokio-rustls="0.10"
