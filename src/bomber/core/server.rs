@@ -24,9 +24,22 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
+use super::Room;
 
-pub mod core;
-pub mod game;
-pub mod map;
-pub mod net;
-pub mod shape;
+pub struct Server {
+    lobby: Room,
+    rooms: Vec<Room>
+}
+
+impl Server {
+    pub fn new() -> Server {
+        Server {
+            lobby: Room::new(),
+            rooms: Vec::new()
+        }
+    }
+
+    pub fn join_server(&mut self) -> bool {
+        self.lobby.join()
+    }
+}

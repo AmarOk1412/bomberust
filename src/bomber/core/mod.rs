@@ -25,8 +25,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-pub mod core;
-pub mod game;
-pub mod map;
-pub mod net;
-pub mod shape;
+pub mod player;
+pub mod room;
+pub mod server;
+
+pub use player::Player;
+pub use room::Room;
+pub use server::Server;

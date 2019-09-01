@@ -24,9 +24,28 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
+use super::Player;
+use std::u32::MAX;
 
-pub mod core;
-pub mod game;
-pub mod map;
-pub mod net;
-pub mod shape;
+pub struct Room {
+    capacity: u32,
+    pub players: Vec<Player>
+}
+
+impl Room {
+    pub fn new() -> Room {
+        Room {
+            capacity: MAX,
+            players: Vec::new()
+        }
+    }
+
+    pub fn join(&mut self) -> bool {
+        if self.capacity + 1 == self.players.len() as u32 {
+            return false;
+        }
+        self.players.push(Player {});
+        self.capacity += 1;
+        true
+    } 
+}
