@@ -30,11 +30,11 @@ extern crate rand;
 extern crate tokio;
 extern crate tokio_rustls;
 
-pub mod bomberust;
+pub mod bomber;
 
-use bomberust::net::{PlayerStreamManager, TlsServer, TlsServerConfig};
+use bomber::net::{PlayerStreamManager, TlsServer, TlsServerConfig};
 
-use bomberust::game::Game;
+use bomber::game::Game;
 
 use std::sync::{Arc, Mutex};
 use std::thread;
