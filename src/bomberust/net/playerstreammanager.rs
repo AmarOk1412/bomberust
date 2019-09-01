@@ -25,34 +25,31 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-extern crate futures;
-extern crate rand;
-extern crate tokio;
-extern crate tokio_rustls;
+pub struct Stream {
+}
 
-pub mod bomberust;
-
-use bomberust::net::{PlayerStreamManager, TlsServer, TlsServerConfig};
-
-use bomberust::game::Game;
-
-use std::sync::{Arc, Mutex};
-use std::thread;
+pub struct PlayerStreamManager {
+    current_id: u64,
+    pub streams: Vec<Stream>
+}
 
 
-fn main() {
-    let server_thread = thread::spawn(move || {
-        let config = TlsServerConfig {
-            host : String::from("0.0.0.0"),
-            port : 2542,
-            cert : String::from("./keys/ca/rsa/end.fullchain"),
-            key : String::from("./keys/ca/rsa/end.rsa"),
-            streams_manager: Arc::new(Mutex::new(PlayerStreamManager::new())),
-        };
-        TlsServer::start(&config);
-    });
+impl PlayerStreamManager {
+    pub fn new() -> PlayerStreamManager {
+        PlayerStreamManager {
+            current_id: 0,
+            streams: Vec::new()
+        }
+    }
 
-    let mut g = Game::new();
-    g.start();
-    let _ = server_thread.join();
+    pub fn add_stream(&mut self) -> u64 {
+        let id = self.current_id;
+        self.streams.push(Stream {});
+        self.current_id += 1;
+        id
+    }
+
+    pub fn on_rx(&mut self, id: &u64, data: &String) {
+        println!("Client {}, said: {}", id, data);
+    }
 }

@@ -25,34 +25,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-extern crate futures;
-extern crate rand;
-extern crate tokio;
-extern crate tokio_rustls;
 
-pub mod bomberust;
+pub mod tlsserver;
+pub mod playerstreammanager;
 
-use bomberust::net::{PlayerStreamManager, TlsServer, TlsServerConfig};
-
-use bomberust::game::Game;
-
-use std::sync::{Arc, Mutex};
-use std::thread;
-
-
-fn main() {
-    let server_thread = thread::spawn(move || {
-        let config = TlsServerConfig {
-            host : String::from("0.0.0.0"),
-            port : 2542,
-            cert : String::from("./keys/ca/rsa/end.fullchain"),
-            key : String::from("./keys/ca/rsa/end.rsa"),
-            streams_manager: Arc::new(Mutex::new(PlayerStreamManager::new())),
-        };
-        TlsServer::start(&config);
-    });
-
-    let mut g = Game::new();
-    g.start();
-    let _ = server_thread.join();
-}
+pub use tlsserver::{TlsServer, TlsServerConfig};
+pub use playerstreammanager::PlayerStreamManager;
