@@ -26,20 +26,149 @@
  **/
 use super::Room;
 
+use std::collections::HashMap;
+
 pub struct Server {
     lobby: Room,
-    rooms: Vec<Room>
+    rooms: HashMap<u64, Room>,
+    player_to_room: HashMap<u64, u64>,
+    current_room_id: u64,
 }
 
 impl Server {
     pub fn new() -> Server {
         Server {
             lobby: Room::new(),
-            rooms: Vec::new()
+            rooms: HashMap::new(),
+            player_to_room: HashMap::new(),
+            current_room_id: 0
         }
     }
 
-    pub fn join_server(&mut self) -> bool {
-        self.lobby.join()
+    pub fn join_server(&mut self, id: u64) -> bool {
+        info!("Client ({}) is in the lobby", id);
+        self.player_to_room.insert(id, 0);
+        self.lobby.join(id)
+    }
+
+    pub fn create_room(&mut self, id: u64) -> bool {
+        if !self.player_to_room.contains_key(&id) {
+            warn!("Can't create room because player is not in the server");
+            return false;
+        }
+
+        let room_id = self.player_to_room[&id];
+
+        if room_id != 0 && !self.rooms.contains_key(&room_id) {
+            warn!("Can't remove player from Room because rooms doesn't exists");
+            return false;
+        }
+
+        if room_id == 0 {
+            self.lobby.remove_player(id);
+        } else {
+            let remove = self.rooms.get_mut(&room_id).unwrap().remove_player(id);
+            if remove {
+                self.rooms.remove(&room_id);
+            }
+        }
+
+        self.current_room_id += 1;
+        *self.player_to_room.get_mut(&id).unwrap() = self.current_room_id;
+        let mut room = Room::new();
+        room.join(id);
+        self.rooms.insert(self.current_room_id, room);
+
+        info!("Client ({}) is now in Room ({})", id, self.current_room_id);
+        
+        true
+    }
+
+    pub fn join_room(&mut self, id: u64, join_id: u64) -> bool {
+        if !self.player_to_room.contains_key(&id) {
+            warn!("Can't create room because player is not in the server");
+            return false;
+        }
+
+        let room_id = self.player_to_room[&id];
+
+        if room_id == join_id {
+            warn!("Player try to join its current room");
+            return false;
+        }
+
+        if room_id != 0 && !self.rooms.contains_key(&room_id) {
+            warn!("Can't remove player from Room because rooms doesn't exists");
+            return false;
+        }
+
+        if room_id == 0 {
+            self.lobby.remove_player(id);
+        } else {
+            let remove = self.rooms.get_mut(&room_id).unwrap().remove_player(id);
+            if remove {
+                self.rooms.remove(&room_id);
+            }
+        }
+
+        if join_id == 0 {
+            self.lobby.join(id);
+        } else {
+            self.rooms.get_mut(&join_id).unwrap().join(id);
+        }
+        *self.player_to_room.get_mut(&id).unwrap() = join_id;
+
+        info!("Client ({}) is now in Room ({})", id, join_id);
+        true
+    }
+
+    pub fn launch_game(&mut self, id: u64) -> bool {
+        if !self.player_to_room.contains_key(&id) {
+            warn!("Can't launch game because player is not in the server");
+            return false;
+        }
+
+        let room_id = self.player_to_room[&id];
+
+        if room_id == 0 {
+            warn!("Can't launch game from lobby");
+            return false;
+        }
+
+        if !self.rooms.contains_key(&room_id) {
+            warn!("Can't launch game because room doesn't exists");
+            return false;
+        }
+
+        self.rooms.get_mut(&room_id).unwrap().launch_game(id);
+
+        info!("Client ({}) launched game in room ({})", id, self.current_room_id);
+        
+        true
+    }
+
+    pub fn put_bomb(&mut self, id: u64) -> bool {
+        if !self.player_to_room.contains_key(&id) {
+            warn!("Can't put bomb because player is not in the server");
+            return false;
+        }
+
+        let room_id = self.player_to_room[&id];
+
+        if room_id == 0 {
+            warn!("Can't put bomb from lobby");
+            return false;
+        }
+
+        if !self.rooms.contains_key(&room_id) {
+            warn!("Can't put bomb because room doesn't exists");
+            return false;
+        }
+
+        self.rooms.get_mut(&room_id).unwrap().put_bomb(id);
+
+        info!("Client ({}) putted bomb in room ({})", id, self.current_room_id);
+        
+        true
     }
 }

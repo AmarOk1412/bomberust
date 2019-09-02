@@ -25,27 +25,68 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 use super::Player;
-use std::u32::MAX;
+use super::super::game::{Action, Game};
+use std::collections::HashMap;
+use std::thread;
+use std::sync::{Arc, Mutex};
 
 pub struct Room {
     capacity: u32,
-    pub players: Vec<Player>
+    pub players: HashMap<u64, Player>,
+    pub game: Option<Arc<Mutex<Game>>>,
+    pub game_thread: Option<thread::JoinHandle<()>>,
 }
 
 impl Room {
     pub fn new() -> Room {
         Room {
-            capacity: MAX,
-            players: Vec::new()
+            capacity: 2048,
+            players: HashMap::new(),
+            game: None,
+            game_thread: None
         }
     }
 
-    pub fn join(&mut self) -> bool {
-        if self.capacity + 1 == self.players.len() as u32 {
+    pub fn join(&mut self, id: u64) -> bool {
+        if self.capacity <= self.players.len() as u32 + 1 {
             return false;
         }
-        self.players.push(Player {});
-        self.capacity += 1;
+        self.players.insert(id, Player {});
         true
     } 
+
+    pub fn remove_player(&mut self, id: u64) -> bool {
+        if !self.players.contains_key(&id) {
+            warn!("Can't remove player from room because not found");
+            return false;
+        }
+        self.players.remove(&id);
+        self.players.len() == 0
+    }
+
+    pub fn launch_game(&mut self, id: u64) -> bool {
+        if self.game.is_some() {
+            warn!("Game already launched");
+            return false;
+        }
+        let game = Arc::new(Mutex::new(Game::new()));
+        let game_cloned = game.clone();
+        self.game = Some(game);
+        self.game_thread = Some(thread::spawn(move || {
+            game_cloned.lock().unwrap().start();
+        }));
+        
+        true
+    }
+
+    pub fn put_bomb(&mut self, id: u64) -> bool {
+        if self.game.is_none() {
+            warn!("No game launched, so cannot put bomb");
+            return false;
+        }
+        self.game.as_ref().unwrap().lock().unwrap().execute(Action::PutBomb, 0);
+        warn!("Bomb launched!");
+        
+        true
+    }
 }

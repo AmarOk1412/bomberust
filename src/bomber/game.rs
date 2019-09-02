@@ -90,7 +90,7 @@ impl Game {
         }
     }
 
-    fn execute(&mut self, action: Action, player_id: i32) {
+    pub fn execute(&mut self, action: Action, player_id: i32) {
         match action {
             Action::PutBomb => {
                 let player = &self.map.players[player_id as usize];
@@ -114,7 +114,6 @@ impl Game {
     pub fn start(&mut self) {
         self.started = Instant::now();
         let mut printed = Instant::now();
-        self.players[0].actions.push(Action::PutBomb);
 
         loop {
             let mut action_queue = Vec::new();

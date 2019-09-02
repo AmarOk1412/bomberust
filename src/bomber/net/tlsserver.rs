@@ -88,8 +88,8 @@ impl TlsServer {
                     }
                     Ok(id)
                 })
-                .map(move |id| println!("END {:?}", id))
-                .map_err(move |err| println!("Error: {:?} - {:?}", err, addr));
+                .map(move |id| warn!("TODO: {:?} quit", id))
+                .map_err(move |err| error!("Error: {:?} - {:?}", err, addr));
                 tokio::spawn(done);
 
                 Ok(())

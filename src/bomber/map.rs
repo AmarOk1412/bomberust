@@ -89,7 +89,7 @@ pub trait Walkable {
 }
 
 
-pub trait Item: Walkable  {
+pub trait Item: Walkable + Sync + Send {
     fn name(&self) -> String;
 
     fn as_any(&self) -> &dyn Any;

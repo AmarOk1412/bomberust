@@ -25,6 +25,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
+extern crate env_logger;
+#[macro_use]
+extern crate log;
 extern crate futures;
 extern crate rand;
 extern crate tokio;
@@ -32,6 +35,7 @@ extern crate tokio_rustls;
 
 pub mod bomber;
 
+use bomber::core::Server;
 use bomber::net::{PlayerStreamManager, TlsServer, TlsServerConfig};
 
 use bomber::game::Game;
@@ -41,7 +45,11 @@ use std::thread;
 
 
 fn main() {
-    let streams_manager = Arc::new(Mutex::new(PlayerStreamManager::new()));
+    // Init logging
+    env_logger::init();
+
+    let server = Arc::new(Mutex::new(Server::new()));
+    let streams_manager = Arc::new(Mutex::new(PlayerStreamManager::new(server)));
     let server_thread = thread::spawn(move || {
         let config = TlsServerConfig {
             host : String::from("0.0.0.0"),
@@ -53,7 +61,5 @@ fn main() {
         TlsServer::start(&config);
     });
 
-    let mut g = Game::new();
-    g.start();
     let _ = server_thread.join();
 }
