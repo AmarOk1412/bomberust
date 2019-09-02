@@ -41,13 +41,14 @@ use std::thread;
 
 
 fn main() {
+    let streams_manager = Arc::new(Mutex::new(PlayerStreamManager::new()));
     let server_thread = thread::spawn(move || {
         let config = TlsServerConfig {
             host : String::from("0.0.0.0"),
             port : 2542,
             cert : String::from("./keys/ca/rsa/end.fullchain"),
             key : String::from("./keys/ca/rsa/end.rsa"),
-            streams_manager: Arc::new(Mutex::new(PlayerStreamManager::new())),
+            streams_manager: streams_manager,
         };
         TlsServer::start(&config);
     });

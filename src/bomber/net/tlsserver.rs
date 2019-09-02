@@ -38,6 +38,7 @@ use tokio_rustls::{
     },
 };
 use std::sync::{Arc, Mutex};
+use std::{thread, time};
 
 use super::playerstreammanager::PlayerStreamManager;
 
@@ -77,14 +78,17 @@ impl TlsServer {
                 let stm = stm.clone();
                 let done = acceptor.accept(stream)
                 .and_then(move |stream| {
-                    let stream = std::io::BufReader::new(stream);
-                    let id = stm.lock().unwrap().add_stream();
-                    tokio::io::lines(stream).for_each(move |line| {
-                        stm.lock().unwrap().on_rx(&id, &line);
-                        Ok(())
-                    })
+                    let id = stm.lock().unwrap().add_stream(stream);
+                    let process_delay = time::Duration::from_nanos(100);
+                    loop {
+                        if !stm.lock().unwrap().process_stream(id) {
+                            break;
+                        }
+                        thread::sleep(process_delay);
+                    }
+                    Ok(id)
                 })
-                .map(move |()| println!("END"))
+                .map(move |id| println!("END {:?}", id))
                 .map_err(move |err| println!("Error: {:?} - {:?}", err, addr));
                 tokio::spawn(done);
 

@@ -25,7 +25,15 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
+use futures::Async;
+use tokio_rustls::server::TlsStream;
+use tokio::net::TcpStream;
+use tokio::io::AsyncRead;
+use std::io::Write;
+
 pub struct Stream {
+    id: u64,
+    stream: TlsStream<TcpStream>,
 }
 
 pub struct PlayerStreamManager {
@@ -42,11 +50,37 @@ impl PlayerStreamManager {
         }
     }
 
-    pub fn add_stream(&mut self) -> u64 {
+    pub fn add_stream(&mut self, stream: TlsStream<TcpStream>) -> u64 {
         let id = self.current_id;
-        self.streams.push(Stream {});
+        self.streams.push(Stream {
+            id,
+            stream,
+        });
         self.current_id += 1;
         id
+    }
+
+    pub fn process_stream(&mut self, id: u64) -> bool {
+        let mut buf = [0; 1024];
+        let mut result = true;
+        match self.streams[id as usize].stream.poll_read(&mut buf) {
+            Ok(Async::Ready(n)) => {
+                result = n != 0;
+            },
+            Ok(Async::NotReady) => {}
+            Err(_) => { result = false; }
+        };
+        if !result {
+            return false;
+        }
+        /* TODO write from server
+        match self.streams[id as usize].stream.write(String::from("HELLO\n").as_bytes()) {
+            Err(_) => {
+                result = false;
+            }
+            _ => {}
+        }*/
+        result
     }
 
     pub fn on_rx(&mut self, id: &u64, data: &String) {
