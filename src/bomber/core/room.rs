@@ -28,6 +28,7 @@ use super::Player;
 use super::super::game::{Action, Game};
 use std::collections::HashMap;
 use std::thread;
+use std::time::Duration;
 use std::sync::{Arc, Mutex};
 
 pub struct Room {
@@ -49,6 +50,9 @@ impl Room {
 
     pub fn join(&mut self, id: u64) -> bool {
         if self.capacity <= self.players.len() as u32 + 1 {
+            return false;
+        }
+        if self.game.is_some() {
             return false;
         }
         self.players.insert(id, Player {});
@@ -74,6 +78,10 @@ impl Room {
         self.game = Some(game);
         self.game_thread = Some(thread::spawn(move || {
             game_cloned.lock().unwrap().start();
+            loop {
+                game_cloned.lock().unwrap().event_loop();
+                thread::sleep(Duration::from_nanos(1));
+            }
         }));
         
         true
@@ -85,7 +93,7 @@ impl Room {
             return false;
         }
         self.game.as_ref().unwrap().lock().unwrap().execute(Action::PutBomb, 0);
-        warn!("Bomb launched!");
+        info!("Bomb launched!");
         
         true
     }

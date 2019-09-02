@@ -73,13 +73,16 @@ impl Server {
             }
         }
 
-        self.current_room_id += 1;
-        *self.player_to_room.get_mut(&id).unwrap() = self.current_room_id;
         let mut room = Room::new();
-        room.join(id);
-        self.rooms.insert(self.current_room_id, room);
-
-        info!("Client ({}) is now in Room ({})", id, self.current_room_id);
+        if room.join(id) {
+            self.current_room_id += 1;
+            self.rooms.insert(self.current_room_id, room);
+            *self.player_to_room.get_mut(&id).unwrap() = self.current_room_id;
+            info!("Client ({}) is now in Room ({})", id, self.current_room_id);
+        } else {
+            *self.player_to_room.get_mut(&id).unwrap() = 0;
+            info!("Client ({}) is now in Room ({})", id, 0);
+        }
         
         true
     }
@@ -113,12 +116,17 @@ impl Server {
 
         if join_id == 0 {
             self.lobby.join(id);
+            *self.player_to_room.get_mut(&id).unwrap() = join_id;
         } else {
-            self.rooms.get_mut(&join_id).unwrap().join(id);
+            if self.rooms.get_mut(&join_id).unwrap().join(id) {
+                *self.player_to_room.get_mut(&id).unwrap() = join_id;
+                info!("Client ({}) is now in Room ({})", id, join_id);
+            } else {
+                *self.player_to_room.get_mut(&id).unwrap() = 0;
+                info!("Client ({}) is now in Room ({})", id, 0);
+            }
         }
-        *self.player_to_room.get_mut(&id).unwrap() = join_id;
 
-        info!("Client ({}) is now in Room ({})", id, join_id);
         true
     }
 
