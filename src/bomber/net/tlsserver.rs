@@ -42,6 +42,9 @@ use std::{thread, time};
 
 use super::playerstreammanager::PlayerStreamManager;
 
+/**
+ * Server config
+ */
 pub struct TlsServerConfig {
     pub host: String,
     pub port: u16,
@@ -58,6 +61,9 @@ fn load_keys(path: &str) -> Vec<PrivateKey> {
     rsa_private_keys(&mut BufReader::new(File::open(path).unwrap())).unwrap()
 }
 
+/**
+ * Listen for incoming connections and pass it to a PlayerStreamManager
+ */
 pub struct TlsServer {
 }
 
@@ -81,6 +87,7 @@ impl TlsServer {
                     let id = stm.lock().unwrap().add_stream(stream);
                     let process_delay = time::Duration::from_nanos(100);
                     loop {
+                        // This is done here to be in a tokio Task
                         if !stm.lock().unwrap().process_stream(id) {
                             break;
                         }

@@ -32,6 +32,9 @@ use std::thread;
 use std::time::Duration;
 use std::sync::{Arc, Mutex};
 
+/**
+ * Represents a room, manage a Game
+ */
 pub struct Room {
     capacity: u32,
     pub players: HashMap<u64, Player>,
@@ -40,6 +43,10 @@ pub struct Room {
 }
 
 impl Room {
+    /**
+     * Creates a Room
+     * @return  The created Room
+     */
     pub fn new() -> Room {
         Room {
             capacity: 2048,
@@ -49,6 +56,11 @@ impl Room {
         }
     }
 
+    /**
+     * Join the room
+     * @param id    The player id
+     * @return      If the operation is successful
+     */
     pub fn join(&mut self, id: u64) -> bool {
         if self.capacity <= self.players.len() as u32 + 1 {
             return false;
@@ -60,6 +72,11 @@ impl Room {
         true
     } 
 
+    /**
+     * Leave the room
+     * @param id    The player id
+     * @return      If the operation is successful
+     */
     pub fn remove_player(&mut self, id: u64) -> bool {
         if !self.players.contains_key(&id) {
             warn!("Can't remove player from room because not found");
@@ -69,6 +86,11 @@ impl Room {
         self.players.len() == 0
     }
 
+    /**
+     * Launch the game
+     * @param id    The player id who launch the game
+     * @return      If the operation is successful
+     */
     pub fn launch_game(&mut self, id: u64) -> bool {
         if self.game.is_some() {
             warn!("Game already launched");
@@ -88,6 +110,11 @@ impl Room {
         true
     }
 
+    /**
+     * Add a bomb
+     * @param id    The player id
+     * @return      If the operation is successful
+     */
     pub fn put_bomb(&mut self, id: u64) -> bool {
         if self.game.is_none() {
             warn!("No game launched, so cannot put bomb");

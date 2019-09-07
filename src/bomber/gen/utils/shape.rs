@@ -25,6 +25,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
+/**
+ * Used for Bombs for example
+ */
 #[derive(Clone)]
 pub enum Shape {
     Cross,

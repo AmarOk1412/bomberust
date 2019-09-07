@@ -27,8 +27,10 @@
 
 pub mod direction;
 pub mod mapplayer;
+pub mod shape;
 pub mod square;
 
 pub use direction::Direction;
 pub use mapplayer::MapPlayer;
+pub use shape::Shape;
 pub use square::{Square, SquareType};

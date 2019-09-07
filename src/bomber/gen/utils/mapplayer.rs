@@ -25,8 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
+/**
+ * Represent a player on a map
+ */
 #[derive(Clone, Copy)]
 pub struct MapPlayer {
-    pub x: usize,
-    pub y: usize
+    pub x: usize, // TODO float
+    pub y: usize // TODO float
 }

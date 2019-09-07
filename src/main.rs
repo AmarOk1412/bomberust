@@ -53,6 +53,7 @@ fn main() {
     let server = Arc::new(Mutex::new(Server::new()));
     let streams_manager = Arc::new(Mutex::new(PlayerStreamManager::new(server)));
     let server_thread = thread::spawn(move || {
+        // TODO get config from file
         let config = TlsServerConfig {
             host : String::from("0.0.0.0"),
             port : 2542,

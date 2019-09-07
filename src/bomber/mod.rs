@@ -28,4 +28,3 @@
 pub mod core;
 pub mod gen;
 pub mod net;
-pub mod shape;

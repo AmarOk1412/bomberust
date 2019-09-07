@@ -28,6 +28,9 @@ use super::Room;
 
 use std::collections::HashMap;
 
+/**
+ * Represent the main server, manage rooms
+ */
 pub struct Server {
     lobby: Room,
     rooms: HashMap<u64, Room>,
@@ -36,6 +39,9 @@ pub struct Server {
 }
 
 impl Server {
+    /**
+     * Create a new Server
+     */
     pub fn new() -> Server {
         Server {
             lobby: Room::new(),
@@ -45,12 +51,22 @@ impl Server {
         }
     }
 
+    /**
+     * A new player is coming. Add it to the lobby
+     * @param id    The player id
+     * @return      If the operation is successful
+     */
     pub fn join_server(&mut self, id: u64) -> bool {
         info!("Client ({}) is in the lobby", id);
         self.player_to_room.insert(id, 0);
         self.lobby.join(id)
     }
 
+    /**
+     * A player is creating a room. Add it to this room at the end
+     * @param id    The player id
+     * @return      If the operation is successful
+     */
     pub fn create_room(&mut self, id: u64) -> bool {
         if !self.player_to_room.contains_key(&id) {
             warn!("Can't create room because player is not in the server");
@@ -87,6 +103,12 @@ impl Server {
         true
     }
 
+    /**
+     * A player is joining an existing room.
+     * @param id        The player id
+     * @param join_id   The room to join
+     * @return          If the operation is successful
+     */
     pub fn join_room(&mut self, id: u64, join_id: u64) -> bool {
         if !self.player_to_room.contains_key(&id) {
             warn!("Can't create room because player is not in the server");
@@ -130,6 +152,11 @@ impl Server {
         true
     }
 
+    /**
+     * A player is launching the game.
+     * @param id        The player id
+     * @return          If the operation is successful
+     */
     pub fn launch_game(&mut self, id: u64) -> bool {
         if !self.player_to_room.contains_key(&id) {
             warn!("Can't launch game because player is not in the server");
@@ -155,6 +182,11 @@ impl Server {
         true
     }
 
+    /**
+     * A player put a bomb.
+     * @param id        The player id
+     * @return          If the operation is successful
+     */
     pub fn put_bomb(&mut self, id: u64) -> bool {
         if !self.player_to_room.contains_key(&id) {
             warn!("Can't put bomb because player is not in the server");

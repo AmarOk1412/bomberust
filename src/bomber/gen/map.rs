@@ -31,6 +31,9 @@ use rand::Rng;
 use super::utils::{Direction, MapPlayer, Square, SquareType};
 use super::item::*;
 
+/**
+ * Represent a map for a game
+ */
 pub struct Map {
     pub w: usize,
     pub h: usize,
@@ -40,6 +43,13 @@ pub struct Map {
 }
 
 impl Map {
+    /**
+     * Generate a new map.
+     * @todo redo and clean. Mostly avoid to generate players here
+     * @param w     width of the map
+     * @param h     height of the map
+     * @return      The generated map
+     */
     pub fn new(mut w: usize, mut h: usize) -> Map {
         if w < 11 {
             w = 11;
@@ -117,6 +127,10 @@ impl Map {
         res
     }
 
+    /**
+     * Modify the map till all players can safely play
+     * @todo REDO THIS DIRTY AND HACKY THING
+     */
     fn make_startable(&mut self) {
         for p in &self.players {
             let mut rng = rand::thread_rng();

@@ -35,7 +35,6 @@ pub trait Walkable {
     fn explode_event(&self, pos: &(usize, usize), bomb_pos: &(usize, usize)) -> (bool /* block */, bool /* destroy item */);
 }
 
-
 pub trait Item: Walkable + Sync + Send {
     fn name(&self) -> String;
 

@@ -30,8 +30,9 @@ use std::cmp::{max, min};
 use std::collections::{HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
-use super::super::super::gen::{Map, item::*};
-use super::super::super::shape::Shape;
+use super::super::super::gen::{Map, item::*, utils::Shape};
+
+// TODO redo this file
 
 #[derive(Clone)]
 pub struct Player {
@@ -153,6 +154,7 @@ impl Game {
     pub fn event_loop(&mut self) {
         self.execute_actions();
         // Explode bomb
+        // TODO clean
         let mut bomb_idx = 0;
         loop {
             if bomb_idx >= self.bombs.len() {

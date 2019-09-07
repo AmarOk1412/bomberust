@@ -28,9 +28,15 @@
 use serde::{Deserialize, Serialize};
 use rmps::{Deserializer, Serializer};
 
+// This file contains messages which will be wrapped via msgpack.
+// Each messages MUST have a unique msg_type.
+
+/**
+ * Generic message
+ */
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct Msg {
-    pub msg_type: String,
+    pub msg_type: String, // TODO enum
 }
 
 impl Msg {
@@ -41,6 +47,9 @@ impl Msg {
     }
 }
 
+/**
+ * Message to send player details such as the name, its key, etc.
+ */
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct PlayerMsg {
     pub msg_type: String,
@@ -56,6 +65,9 @@ impl PlayerMsg {
     }
 }
 
+/**
+ * Message to join a room
+ */
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct JoinMsg {
     pub msg_type: String,

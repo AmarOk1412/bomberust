@@ -38,18 +38,27 @@ use serde::Deserialize;
 use std::io::{Cursor, Write};
 use std::sync::{Arc, Mutex};
 
+/**
+ * Contains the current datas
+ */
 pub struct RtpBuf {
     data: [u8; 65536],
     size: u16,
     wanted: u16,
 }
 
+/**
+ * Wrap the TLS socket and current incoming datas
+ */
 pub struct Stream {
     id: u64,
     stream: TlsStream<TcpStream>,
     rtp_buf: RtpBuf,
 }
 
+/**
+ * Manager incoming streams and pass events to the Server 
+ */
 pub struct PlayerStreamManager {
     current_id: u64,
     pub streams: Vec<Stream>,
@@ -58,6 +67,9 @@ pub struct PlayerStreamManager {
 
 
 impl PlayerStreamManager {
+    /**
+     * Generate a new PlayerStreamManager
+     */
     pub fn new(server: Arc<Mutex<Server>>) -> PlayerStreamManager {
         PlayerStreamManager {
             current_id: 0,
@@ -66,6 +78,11 @@ impl PlayerStreamManager {
         }
     }
 
+    /**
+     * Add a stream to process
+     * @param stream    The stream to add
+     * @return          The stream id
+     */
     pub fn add_stream(&mut self, stream: TlsStream<TcpStream>) -> u64 {
         let id = self.current_id;
         self.streams.push(Stream {
@@ -82,7 +99,14 @@ impl PlayerStreamManager {
         id
     }
 
-    pub fn parse_rtp(&mut self, pkt: Vec<u8>, id: u64) {
+    /**
+     * Each packets are wrapped in a msgpack object.
+     * This function deserialize the message and execute the action.
+     * @note: TODO verify signature
+     * @param pkt   The packet to process
+     * @param id    The stream id
+     */
+    fn parse_pkt(&mut self, pkt: Vec<u8>, id: u64) {
         debug!("rx:{}", pkt.len());
         let cur = Cursor::new(&*pkt);
         let mut de = Deserializer::new(cur);
@@ -104,6 +128,11 @@ impl PlayerStreamManager {
         }
     }
 
+    /**
+     * Process a stream (rx and tx datas)
+     * @param id    The stream id
+     * @return if the operation was successful
+     */
     pub fn process_stream(&mut self, id: u64) -> bool {
         let mut buf = [0; 1024];
         let mut result = true;
@@ -165,8 +194,6 @@ impl PlayerStreamManager {
                             break;
                         }
 
-
-                        // TODO exec pkt
                         let pkt = buf[(start as usize)..(start as usize + pkt_len as usize)].to_vec();
                         pkts.push(pkt);
 
@@ -179,8 +206,9 @@ impl PlayerStreamManager {
             Ok(Async::NotReady) => {}
             Err(_) => { result = false; }
         };
+        // Execute packts
         for pkt in pkts {
-            self.parse_rtp(pkt, id);
+            self.parse_pkt(pkt, id);
         }
         if !result {
             return false;
