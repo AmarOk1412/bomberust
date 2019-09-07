@@ -25,7 +25,29 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-pub mod core;
-pub mod gen;
-pub mod net;
-pub mod shape;
+use super::super::utils::MapPlayer;
+use super::{Walkable, Item};
+use std::any::Any;
+
+pub struct BombItem;
+
+impl Walkable for BombItem {
+    fn walkable(&self, _p: &MapPlayer, _pos: &(usize, usize)) -> bool {
+        false
+    }
+
+    fn explode_event(&self, pos: &(usize, usize), bomb_pos: &(usize, usize)) -> (bool, bool) {
+        (bomb_pos.0 != pos.0 || bomb_pos.1 != pos.1, true)
+    }
+}
+
+impl Item for BombItem {
+    // TODO better solution?
+    fn name(&self) -> String {
+        String::from("Bomb")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}

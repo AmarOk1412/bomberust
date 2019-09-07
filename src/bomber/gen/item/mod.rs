@@ -25,7 +25,30 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-pub mod core;
-pub mod gen;
-pub mod net;
-pub mod shape;
+use super::utils::MapPlayer;
+
+use std::any::Any;
+
+pub trait Walkable {
+    fn walkable(&self, p: &MapPlayer, pos: &(usize, usize)) -> bool;
+
+    fn explode_event(&self, pos: &(usize, usize), bomb_pos: &(usize, usize)) -> (bool /* block */, bool /* destroy item */);
+}
+
+
+pub trait Item: Walkable + Sync + Send {
+    fn name(&self) -> String;
+
+    fn as_any(&self) -> &dyn Any;
+}
+
+pub type InteractiveItem = Box<dyn Item>;
+
+pub mod bomb;
+pub use bomb::BombItem;
+pub mod bonus;
+pub use bonus::Bonus;
+pub mod destructiblebox;
+pub use destructiblebox::DestructibleBox;
+pub mod malus;
+pub use malus::Malus;

@@ -30,7 +30,7 @@ use std::cmp::{max, min};
 use std::collections::{HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
-use super::super::super::map::{Bonus, BombItem, DestructibleBox, Malus, Map, Walkable};
+use super::super::super::gen::{Map, item::*};
 use super::super::super::shape::Shape;
 
 #[derive(Clone)]

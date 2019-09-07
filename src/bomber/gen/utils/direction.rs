@@ -25,7 +25,26 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-pub mod core;
-pub mod gen;
-pub mod net;
-pub mod shape;
+use rand::{
+    distributions::{Distribution, Standard},
+    Rng,
+};
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum Direction {
+    North,
+    South,
+    West,
+    East,
+}
+
+impl Distribution<Direction> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Direction {
+        match rng.gen_range(0, 4) {
+            0 => Direction::North,
+            1 => Direction::South,
+            2 => Direction::West,
+            _ => Direction::East,
+        }
+    }
+}

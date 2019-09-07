@@ -25,7 +25,52 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-pub mod core;
-pub mod gen;
-pub mod net;
-pub mod shape;
+use super::super::utils::MapPlayer;
+use super::{Walkable, Item};
+use rand::{
+    distributions::{Distribution, Standard},
+    Rng,
+};
+use std::any::Any;
+
+#[derive(Clone, PartialEq)]
+pub enum Bonus {
+    ImproveBombRadius,
+    PunchBombs,
+    ImproveSpeed,
+    RepelBombs,
+    MoreBombs,
+    Custom(String)
+}
+
+impl Distribution<Bonus> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Bonus {
+        match rng.gen_range(0, 4) {
+            0 => Bonus::ImproveBombRadius,
+            1 => Bonus::PunchBombs,
+            2 => Bonus::ImproveSpeed,
+            3 => Bonus::RepelBombs,
+            _ => Bonus::MoreBombs,
+        }
+    }
+}
+
+impl Walkable for Bonus {
+    fn walkable(&self, _p: &MapPlayer, _pos: &(usize, usize)) -> bool {
+        true
+    }
+
+    fn explode_event(&self, _pos: &(usize, usize), _bomb_pos: &(usize, usize)) -> (bool, bool) {
+        (true, true)
+    }
+}
+
+impl Item for Bonus {
+    fn name(&self) -> String {
+        String::from("Bonus")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}

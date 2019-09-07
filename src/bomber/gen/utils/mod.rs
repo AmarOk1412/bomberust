@@ -25,7 +25,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-pub mod core;
-pub mod gen;
-pub mod net;
-pub mod shape;
+pub mod direction;
+pub mod mapplayer;
+pub mod square;
+
+pub use direction::Direction;
+pub use mapplayer::MapPlayer;
+pub use square::{Square, SquareType};

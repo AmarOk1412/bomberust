@@ -25,7 +25,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-pub mod core;
-pub mod gen;
-pub mod net;
-pub mod shape;
+#[derive(Clone, Copy)]
+pub struct MapPlayer {
+    pub x: usize,
+    pub y: usize
+}

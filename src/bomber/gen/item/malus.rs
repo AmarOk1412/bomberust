@@ -25,7 +25,52 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-pub mod core;
-pub mod gen;
-pub mod net;
-pub mod shape;
+use super::super::utils::MapPlayer;
+use super::{Walkable, Item};
+use rand::{
+    distributions::{Distribution, Standard},
+    Rng,
+};
+use std::any::Any;
+
+#[derive(Clone, PartialEq)]
+pub enum Malus {
+    Slow,
+    UltraFast,
+    SpeedBomb,
+    DropBombs,
+    InvertedControls,
+    Custom(String)
+}
+
+impl Distribution<Malus> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Malus {
+        match rng.gen_range(0, 4) {
+            0 => Malus::Slow,
+            1 => Malus::UltraFast,
+            2 => Malus::SpeedBomb,
+            3 => Malus::DropBombs,
+            _ => Malus::InvertedControls,
+        }
+    }
+}
+
+impl Walkable for Malus {
+    fn walkable(&self, _p: &MapPlayer, _pos: &(usize, usize)) -> bool {
+        true
+    }
+
+    fn explode_event(&self, _pos: &(usize, usize), _bomb_pos: &(usize, usize)) -> (bool, bool) {
+        (true, true)
+    }
+}
+
+impl Item for Malus {
+    fn name(&self) -> String {
+        String::from("Malus")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
