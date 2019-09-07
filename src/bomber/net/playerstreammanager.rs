@@ -26,11 +26,16 @@
  **/
 
 use super::super::core::Server;
+use super::super::net::msg::*;
+
 use futures::Async;
 use tokio_rustls::server::TlsStream;
 use tokio::net::TcpStream;
 use tokio::io::AsyncRead;
-use std::io::Write;
+use rmps::Deserializer;
+use rmps::decode::Error;
+use serde::Deserialize;
+use std::io::{Cursor, Write};
 use std::sync::{Arc, Mutex};
 
 pub struct RtpBuf {
@@ -77,17 +82,25 @@ impl PlayerStreamManager {
         id
     }
 
-    pub fn parse_rtp(&mut self, pkt: String, id: u64) {
-        debug!("rx:{}", pkt);
-        if pkt == "ADD_ROOM" {
-            self.server.lock().unwrap().create_room(id);
-        } else if pkt == "LAUNCH" {
-            self.server.lock().unwrap().launch_game(id);
-        } else if pkt == "PUT_BOMB" {
-            self.server.lock().unwrap().put_bomb(id);
-        } else if pkt.starts_with("JOIN:") {
-            let room: u64 = String::from(&pkt[5..]).parse().unwrap_or(0);
-            self.server.lock().unwrap().join_room(id, room);
+    pub fn parse_rtp(&mut self, pkt: Vec<u8>, id: u64) {
+        debug!("rx:{}", pkt.len());
+        let cur = Cursor::new(&*pkt);
+        let mut de = Deserializer::new(cur);
+        let actual: Result<Msg, Error> = Deserialize::deserialize(&mut de);
+        if actual.is_ok() {
+            let msg_type = actual.unwrap().msg_type;
+            let cur = Cursor::new(&*pkt);
+            let mut de = Deserializer::new(cur);
+            if msg_type == "create" {
+                self.server.lock().unwrap().create_room(id);
+            } else if msg_type == "join" {
+                let msg: JoinMsg = Deserialize::deserialize(&mut de).unwrap_or(JoinMsg::new(0));
+                self.server.lock().unwrap().join_room(id, msg.room);
+            } else if msg_type == "launch" {
+                self.server.lock().unwrap().launch_game(id);
+            } else if msg_type == "bomb" {
+                self.server.lock().unwrap().put_bomb(id);
+            }
         }
     }
 
@@ -97,7 +110,7 @@ impl PlayerStreamManager {
         let stream = &mut self.streams[id as usize];
         let rtp_buf = &mut stream.rtp_buf;
         let socket = &mut stream.stream;
-        let mut pkts: Vec<String> = Vec::new();
+        let mut pkts: Vec<Vec<u8>> = Vec::new();
         match socket.poll_read(&mut buf) {
             Ok(Async::Ready(n)) => {
                 result = n != 0;
@@ -155,7 +168,7 @@ impl PlayerStreamManager {
 
                         // TODO exec pkt
                         let pkt = buf[(start as usize)..(start as usize + pkt_len as usize)].to_vec();
-                        pkts.push(String::from_utf8(pkt).unwrap_or(String::new()));
+                        pkts.push(pkt);
 
                         if parsed >= size {
                             break;

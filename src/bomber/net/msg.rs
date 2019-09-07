@@ -25,11 +25,48 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-pub mod player;
-pub mod room;
-pub mod server;
-pub mod game;
+use serde::{Deserialize, Serialize};
+use rmps::{Deserializer, Serializer};
 
-pub use player::Player;
-pub use room::Room;
-pub use server::Server;
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+pub struct Msg {
+    pub msg_type: String,
+}
+
+impl Msg {
+    pub fn new(msg_type: String) -> Msg {
+        Msg {
+            msg_type
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+pub struct PlayerMsg {
+    pub msg_type: String,
+    pub name: String,
+}
+
+impl PlayerMsg {
+    pub fn new(name: String) -> PlayerMsg {
+        PlayerMsg {
+            name,
+            msg_type: String::from("player")
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+pub struct JoinMsg {
+    pub msg_type: String,
+    pub room: u64,
+}
+
+impl JoinMsg {
+    pub fn new(room: u64) -> JoinMsg {
+        JoinMsg {
+            room,
+            msg_type: String::from("join")
+        }
+    }
+}

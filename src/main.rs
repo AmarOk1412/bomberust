@@ -30,6 +30,10 @@ extern crate env_logger;
 extern crate log;
 extern crate futures;
 extern crate rand;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+extern crate rmp_serde as rmps;
 extern crate tokio;
 extern crate tokio_rustls;
 
@@ -37,8 +41,6 @@ pub mod bomber;
 
 use bomber::core::Server;
 use bomber::net::{PlayerStreamManager, TlsServer, TlsServerConfig};
-
-use bomber::game::Game;
 
 use std::sync::{Arc, Mutex};
 use std::thread;

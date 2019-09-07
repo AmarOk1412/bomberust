@@ -25,11 +25,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-pub mod player;
-pub mod room;
-pub mod server;
 pub mod game;
 
-pub use player::Player;
-pub use room::Room;
-pub use server::Server;
+pub use game::{Action, Game};

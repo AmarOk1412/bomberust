@@ -28,11 +28,10 @@
 use rand::Rng;
 use std::cmp::{max, min};
 use std::collections::{HashSet, VecDeque};
-use std::thread;
 use std::time::{Duration, Instant};
 
-use super::map::{Bonus, BombItem, DestructibleBox, Malus, Map, Walkable};
-use super::shape::Shape;
+use super::super::super::map::{Bonus, BombItem, DestructibleBox, Malus, Map, Walkable};
+use super::super::super::shape::Shape;
 
 #[derive(Clone)]
 pub struct Player {
@@ -92,7 +91,17 @@ impl Game {
         }
     }
 
-    pub fn execute(&mut self, action: Action, player_id: i32) {
+    pub fn start(&mut self) {
+        self.started = Instant::now();
+        self.last_printed = Instant::now();
+    }
+
+
+    pub fn push_action(&mut self, action: Action, player_id: u64) {
+        self.players[player_id as usize].actions.push(action);
+    }
+
+    fn execute(&mut self, action: Action, player_id: i32) {
         match action {
             Action::PutBomb => {
                 let player = &self.map.players[player_id as usize];
@@ -113,12 +122,7 @@ impl Game {
         }   
     }
 
-    pub fn start(&mut self) {
-        self.started = Instant::now();
-        self.last_printed = Instant::now();
-    }
-
-    pub fn event_loop(&mut self) {
+    fn execute_actions(&mut self) {
         let mut action_queue = Vec::new();
         for p in &mut self.players {
             match p.actions.pop() {
@@ -129,7 +133,25 @@ impl Game {
         for (action, pid) in action_queue {
             self.execute(action, pid);
         }
+    }
 
+    fn print_map(&mut self) {
+        let now = Instant::now();
+        let a_second_ago = now - Duration::from_secs(1);
+        while self.fps_instants.front().map_or(false, |t| *t < a_second_ago) {
+            self.fps_instants.pop_front();
+        }
+        self.fps_instants.push_back(now);
+        let fps = self.fps_instants.len();
+
+        if Instant::now() - self.last_printed > Duration::from_secs(1) {
+            self.last_printed = Instant::now();
+            println!("fps: {}\n{}", fps, self.map);
+        }
+    }
+
+    pub fn event_loop(&mut self) {
+        self.execute_actions();
         // Explode bomb
         let mut bomb_idx = 0;
         loop {
@@ -267,18 +289,6 @@ impl Game {
             bomb_idx += 1;
         };
 
-        // print map
-        let now = Instant::now();
-        let a_second_ago = now - Duration::from_secs(1);
-        while self.fps_instants.front().map_or(false, |t| *t < a_second_ago) {
-            self.fps_instants.pop_front();
-        }
-        self.fps_instants.push_back(now);
-        let fps = self.fps_instants.len();
-
-        if Instant::now() - self.last_printed > Duration::from_secs(1) {
-            self.last_printed = Instant::now();
-            println!("fps: {}\n{}", fps, self.map);
-        }
+        self.print_map();
     }
 }

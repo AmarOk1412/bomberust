@@ -25,7 +25,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-
+pub mod msg;
 pub mod tlsserver;
 pub mod playerstreammanager;
 

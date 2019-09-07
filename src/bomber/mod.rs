@@ -26,7 +26,6 @@
  **/
 
 pub mod core;
-pub mod game;
 pub mod map;
 pub mod net;
 pub mod shape;

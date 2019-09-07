@@ -25,7 +25,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 use super::Player;
-use super::super::game::{Action, Game};
+use super::game::{Action, Game};
+
 use std::collections::HashMap;
 use std::thread;
 use std::time::Duration;
@@ -92,7 +93,7 @@ impl Room {
             warn!("No game launched, so cannot put bomb");
             return false;
         }
-        self.game.as_ref().unwrap().lock().unwrap().execute(Action::PutBomb, 0);
+        self.game.as_ref().unwrap().lock().unwrap().push_action(Action::PutBomb, 0);
         info!("Bomb launched!");
         
         true
