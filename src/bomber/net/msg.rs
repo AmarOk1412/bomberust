@@ -27,6 +27,7 @@
 
 use serde::{Deserialize, Serialize};
 use rmps::{Deserializer, Serializer};
+use super::super::gen::utils::Direction;
 
 // This file contains messages which will be wrapped via msgpack.
 // Each messages MUST have a unique msg_type.
@@ -79,6 +80,24 @@ impl JoinMsg {
         JoinMsg {
             room,
             msg_type: String::from("join")
+        }
+    }
+}
+
+/**
+ * Message to move a player
+ */
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+pub struct MoveMsg {
+    pub msg_type: String,
+    pub direction: Direction,
+}
+
+impl MoveMsg {
+    pub fn new(direction: Direction) -> MoveMsg {
+        MoveMsg {
+            msg_type: String::from("move"),
+            direction,
         }
     }
 }

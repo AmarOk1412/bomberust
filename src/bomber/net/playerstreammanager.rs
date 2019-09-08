@@ -25,8 +25,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
+use super::msg::*;
 use super::super::core::Server;
-use super::super::net::msg::*;
+use super::super::gen::utils::Direction;
 
 use futures::Async;
 use tokio_rustls::server::TlsStream;
@@ -124,6 +125,9 @@ impl PlayerStreamManager {
                 self.server.lock().unwrap().launch_game(id);
             } else if msg_type == "bomb" {
                 self.server.lock().unwrap().put_bomb(id);
+            } else if msg_type == "move" {
+                let msg: MoveMsg = Deserialize::deserialize(&mut de).unwrap_or(MoveMsg::new(Direction::North));
+                self.server.lock().unwrap().move_player(id, msg.direction);
             }
         }
     }

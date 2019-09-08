@@ -93,8 +93,8 @@ impl Map {
             let mut posx: usize = 0;
             let mut posy: usize = 0;
             let mut player = MapPlayer {
-                x: 0,
-                y: 0
+                x: 0.5,
+                y: 0.5
             };
             while !valid_pos {
                 let random_x : usize = rng.gen();
@@ -107,8 +107,8 @@ impl Map {
                 if p == 2 || p == 3 {
                     posy = h - posy - 1;
                 }
-                player.x = posx;
-                player.y = posy;
+                player.x = posx as f32 + 0.5;
+                player.y = posy as f32 + 0.5;
                 if squares[posx + posy * w].sq_type.walkable(&player, &(posx, posy)) {
                     valid_pos = true;
                 }
@@ -138,7 +138,7 @@ impl Map {
             let mut different_y = false;
             let mut destroyable: Vec<(usize, usize)> = Vec::new();
             let mut safe: Vec<(usize, usize)> = Vec::new();
-            safe.push((p.x, p.y));
+            safe.push((p.x as usize, p.y as usize));
 
             let mut safe_idx = 0;
             let mut prefer_n: bool = rng.gen();
@@ -260,7 +260,7 @@ impl fmt::Display for Map {
             // Test if it's a player
             let mut is_player_here = false;
             for p in &self.players {
-                if (p.x + p.y * self.w) == x {
+                if (p.x as usize + p.y as usize * self.w) == x {
                     is_player_here = true;
                 }
             }

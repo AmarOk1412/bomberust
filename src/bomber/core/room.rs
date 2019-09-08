@@ -26,6 +26,7 @@
  **/
 use super::Player;
 use super::game::{Action, Game};
+use super::super::gen::utils::Direction;
 
 use std::collections::HashMap;
 use std::thread;
@@ -121,7 +122,22 @@ impl Room {
             return false;
         }
         self.game.as_ref().unwrap().lock().unwrap().push_action(Action::PutBomb, 0);
-        info!("Bomb launched!");
+        
+        true
+    }
+
+    /**
+     * A player move in a direction
+     * @param id        The player id
+     * @param direction The direction chosen
+     * @return          If the operation is successful
+     */
+    pub fn move_player(&mut self, id: u64, direction: Direction) -> bool {
+        if self.game.is_none() {
+            warn!("No game launched, so cannot put bomb");
+            return false;
+        }
+        self.game.as_ref().unwrap().lock().unwrap().push_action(Action::Move(direction), 0);
         
         true
     }

@@ -30,6 +30,6 @@
  */
 #[derive(Clone, Copy)]
 pub struct MapPlayer {
-    pub x: usize, // TODO float
-    pub y: usize // TODO float
+    pub x: f32,
+    pub y: f32
 }

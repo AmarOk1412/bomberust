@@ -30,7 +30,7 @@ use std::cmp::{max, min};
 use std::collections::{HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
-use super::super::super::gen::{Map, item::*, utils::Shape};
+use super::super::super::gen::{Map, item::*, utils::*};
 
 // TODO redo this file
 
@@ -69,6 +69,7 @@ pub struct Game {
 #[derive(Clone)]
 pub enum Action {
     PutBomb,
+    Move(Direction),
 }
 
 impl Game {
@@ -106,20 +107,45 @@ impl Game {
         match action {
             Action::PutBomb => {
                 let player = &self.map.players[player_id as usize];
-                if self.map.items[player.x + player.y * self.map.w].is_some() {
+                if self.map.items[player.x as usize + player.y as usize * self.map.w].is_some() {
                     println!("CANNOT START BOMB!"); // TODO change with log
                     return;
                 }
-                self.map.items[player.x + player.y * self.map.w] = Some(Box::new(BombItem {}));
+                self.map.items[player.x as usize + player.y as usize * self.map.w] = Some(Box::new(BombItem {}));
                 self.bombs.push(Bomb {
                     radius: 2,
                     shape: Shape::Cross,
                     created_time: Instant::now(),
                     duration: Duration::from_secs(3),
-                    pos: (player.x, player.y),
+                    pos: (player.x as usize, player.y as usize),
                     exploding_info: None,
                 });
             },
+            Action::Move(direction) => {
+                let player = &mut self.map.players[player_id as usize];
+                let increment = 1.0;
+                let mut x = player.x;
+                let mut y = player.y;
+                match direction {
+                    Direction::North => y -= increment,
+                    Direction::South => y += increment,
+                    Direction::West => x -= increment,
+                    Direction::East => x += increment,
+                }
+                if (x as i32) < 0 || (x as usize) >= self.map.w
+                    || (y as i32) < 0 || (y as usize) >= self.map.h {
+                    return;
+                }
+                let mut walkable = self.map.items[x as usize + y as usize * self.map.w].is_none();
+                if !walkable {
+                    walkable = self.map.items[x as usize + y as usize * self.map.w].as_ref().unwrap()
+                        .walkable(player, &(x as usize, y as usize));
+                }
+                if walkable {
+                    player.x = x;
+                    player.y = y;
+                }
+            }
         }   
     }
 
@@ -275,7 +301,7 @@ impl Game {
                                             break;
                                         }
                                         let player = &self.map.players[p];
-                                        if player.x == pos.0 as usize && player.y == pos.1 as usize {
+                                        if player.x as usize == pos.0 as usize && player.y as usize == pos.1 as usize {
                                             self.map.players.remove(p);
                                         } else {
                                             p += 1;

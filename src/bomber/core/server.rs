@@ -25,6 +25,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 use super::Room;
+use super::super::gen::utils::Direction;
 
 use std::collections::HashMap;
 
@@ -208,6 +209,37 @@ impl Server {
         self.rooms.get_mut(&room_id).unwrap().put_bomb(id);
 
         info!("Client ({}) putted bomb in room ({})", id, self.current_room_id);
+        
+        true
+    }
+
+    /**
+     * A player move in a direction
+     * @param id        The player id
+     * @param direction The direction chosen
+     * @return          If the operation is successful
+     */
+    pub fn move_player(&mut self, id: u64, direction: Direction) -> bool {
+        if !self.player_to_room.contains_key(&id) {
+            warn!("Can't mvove because player is not in the server");
+            return false;
+        }
+
+        let room_id = self.player_to_room[&id];
+
+        if room_id == 0 {
+            warn!("Can't mvove from lobby");
+            return false;
+        }
+
+        if !self.rooms.contains_key(&room_id) {
+            warn!("Can't mvove because room doesn't exists");
+            return false;
+        }
+
+        self.rooms.get_mut(&room_id).unwrap().move_player(id, direction);
+
+        info!("Client ({}) moved {:?} in room ({})", id, direction, self.current_room_id);
         
         true
     }
