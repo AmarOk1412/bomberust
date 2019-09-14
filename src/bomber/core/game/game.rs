@@ -32,7 +32,7 @@ use std::time::{Duration, Instant};
 
 use crate::bomber::core::Player;
 use crate::bomber::gen::{Map, item::*, utils::*};
-use crate::bomber::net::diff_msg::{ PlayerMove, SerializedEvent };
+use crate::bomber::net::diff_msg::*;
 
 // TODO redo this file
 
@@ -138,6 +138,13 @@ impl Game {
                     pos: (player.x as usize, player.y as usize),
                     exploding_info: None,
                 });
+                let diff = PlayerPutBomb {
+                    msg_type: String::from("player_put_bomb_diff"),
+                    id: player_id,
+                    x: player.x as usize,
+                    y: player.y as usize,
+                };
+                self.inform_players(&diff.to_vec());
             },
             Action::Move(direction) => {
                 // TODO change increment (NOTE: if bomb under player, should be able to move)
@@ -208,6 +215,7 @@ impl Game {
         // Explode bomb
         // TODO clean
         let mut bomb_idx = 0;
+        let mut pkts = Vec::new();
         loop {
             if bomb_idx >= self.bombs.len() {
                 break;
@@ -328,6 +336,11 @@ impl Game {
                                         }
                                         let player = &self.map.players[p];
                                         if player.x as usize == pos.0 as usize && player.y as usize == pos.1 as usize {
+                                            let diff = PlayerDie {
+                                                msg_type: String::from("player_die"),
+                                                id: p as u64,
+                                            };
+                                            pkts.push(diff.to_vec());
                                             self.map.players.remove(p);
                                         } else {
                                             p += 1;
@@ -342,5 +355,9 @@ impl Game {
 
             bomb_idx += 1;
         };
+
+        for pkt in pkts {
+            self.inform_players(&pkt);
+        }
     }
 }
