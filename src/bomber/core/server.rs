@@ -24,10 +24,15 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
-use super::Room;
 use super::super::gen::utils::Direction;
-
+use super::Room;
+use crate::serde::Serialize;
+use rmps::Serializer;
 use std::collections::HashMap;
+use std::sync::{ Arc, Mutex };
+
+
+pub type PlayerStream = Arc<Mutex<Option<Vec<u8>>>>;
 
 /**
  * Represent the main server, manage rooms
@@ -37,6 +42,7 @@ pub struct Server {
     rooms: HashMap<u64, Room>,
     player_to_room: HashMap<u64, u64>,
     current_room_id: u64,
+    player_to_stream: HashMap<u64, PlayerStream>
 }
 
 impl Server {
@@ -48,7 +54,8 @@ impl Server {
             lobby: Room::new(),
             rooms: HashMap::new(),
             player_to_room: HashMap::new(),
-            current_room_id: 0
+            current_room_id: 0,
+            player_to_stream: HashMap::new(),
         }
     }
 
@@ -57,9 +64,10 @@ impl Server {
      * @param id    The player id
      * @return      If the operation is successful
      */
-    pub fn join_server(&mut self, id: u64) -> bool {
+    pub fn join_server(&mut self, id: u64, stream: PlayerStream) -> bool {
         info!("Client ({}) is in the lobby", id);
         self.player_to_room.insert(id, 0);
+        self.player_to_stream.insert(id, stream);
         self.lobby.join(id)
     }
 
@@ -100,7 +108,7 @@ impl Server {
             *self.player_to_room.get_mut(&id).unwrap() = 0;
             info!("Client ({}) is now in Room ({})", id, 0);
         }
-        
+
         true
     }
 
@@ -179,7 +187,9 @@ impl Server {
         self.rooms.get_mut(&room_id).unwrap().launch_game(id);
 
         info!("Client ({}) launched game in room ({})", id, self.current_room_id);
-        
+
+        self.send_resources(room_id);
+
         true
     }
 
@@ -209,7 +219,7 @@ impl Server {
         self.rooms.get_mut(&room_id).unwrap().put_bomb(id);
 
         info!("Client ({}) putted bomb in room ({})", id, self.current_room_id);
-        
+
         true
     }
 
@@ -221,26 +231,47 @@ impl Server {
      */
     pub fn move_player(&mut self, id: u64, direction: Direction) -> bool {
         if !self.player_to_room.contains_key(&id) {
-            warn!("Can't mvove because player is not in the server");
+            warn!("Can't move because player is not in the server");
             return false;
         }
 
         let room_id = self.player_to_room[&id];
 
         if room_id == 0 {
-            warn!("Can't mvove from lobby");
+            warn!("Can't move from lobby");
             return false;
         }
 
         if !self.rooms.contains_key(&room_id) {
-            warn!("Can't mvove because room doesn't exists");
+            warn!("Can't move because room doesn't exists");
             return false;
         }
 
         self.rooms.get_mut(&room_id).unwrap().move_player(id, direction);
 
         info!("Client ({}) moved {:?} in room ({})", id, direction, self.current_room_id);
-        
+
         true
+    }
+
+    fn send_resources(&mut self, room_id: u64) {
+        info!("Sending resources for room {}", room_id);
+        let players = self.rooms.get(&room_id).unwrap().players.keys();
+        let mut buf = Vec::new();
+        let msg = self.rooms.get(&room_id).unwrap().get_map_msg();
+        msg.serialize(&mut Serializer::new(&mut buf)).unwrap();
+        let len = buf.len() as u16;
+        let mut send_buf : Vec<u8> = Vec::with_capacity(65536);
+        send_buf.push((len >> 8) as u8);
+        send_buf.push((len as u16 % (2 as u16).pow(8)) as u8);
+        send_buf.append(&mut buf);
+
+        for player in players {
+            if self.player_to_stream.contains_key(player) {
+                // TODO is it quick enough? Or add queue
+                info!("Sending resources for player {}", player);
+                *self.player_to_stream[player].lock().unwrap() = Some(send_buf.clone());
+            }
+        }
     }
 }

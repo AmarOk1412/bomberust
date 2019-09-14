@@ -33,7 +33,7 @@ use rand::{
 };
 
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 pub enum SquareType {
     Water,
     Empty,
@@ -84,7 +84,7 @@ impl Walkable for SquareType {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Square {
     pub sq_type: SquareType
 }

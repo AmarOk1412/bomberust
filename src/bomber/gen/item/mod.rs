@@ -28,6 +28,9 @@
 use super::utils::MapPlayer;
 
 use std::any::Any;
+use std::fmt::Debug;
+use serde::Serialize;
+use rmps::Serializer;
 
 pub trait Walkable {
     fn walkable(&self, p: &MapPlayer, pos: &(usize, usize)) -> bool;
@@ -35,13 +38,36 @@ pub trait Walkable {
     fn explode_event(&self, pos: &(usize, usize), bomb_pos: &(usize, usize)) -> (bool /* block */, bool /* destroy item */);
 }
 
-pub trait Item: Walkable + Sync + Send {
+#[typetag::serde]
+pub trait Item: Walkable + Sync + Send + Debug {
     fn name(&self) -> String;
 
     fn as_any(&self) -> &dyn Any;
+
+    fn box_clone(&self) -> Box<dyn Item>;
 }
 
 pub type InteractiveItem = Box<dyn Item>;
+
+/**
+ * Compare if serialized objects are identical
+ */
+impl PartialEq for Box<dyn Item> {
+    fn eq(&self, other: &Self) -> bool {
+        let mut buf = Vec::new();
+        let mut buf_other = Vec::new();
+        self.serialize(&mut Serializer::new(&mut buf)).unwrap();
+        other.serialize(&mut Serializer::new(&mut buf_other)).unwrap();
+        buf == buf_other
+    }
+}
+
+impl Clone for Box<dyn Item>
+{
+    fn clone(&self) -> Box<dyn Item> {
+        self.box_clone()
+    }
+}
 
 pub mod bomb;
 pub use bomb::BombItem;

@@ -34,6 +34,7 @@ use super::item::*;
 /**
  * Represent a map for a game
  */
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct Map {
     pub w: usize,
     pub h: usize,

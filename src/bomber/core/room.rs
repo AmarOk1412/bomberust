@@ -28,6 +28,8 @@ use super::Player;
 use super::game::{Action, Game};
 use super::super::gen::utils::Direction;
 
+use crate::bomber::net::msg::*;
+
 use std::collections::HashMap;
 use std::thread;
 use std::time::Duration;
@@ -71,7 +73,7 @@ impl Room {
         }
         self.players.insert(id, Player {});
         true
-    } 
+    }
 
     /**
      * Leave the room
@@ -92,7 +94,7 @@ impl Room {
      * @param id    The player id who launch the game
      * @return      If the operation is successful
      */
-    pub fn launch_game(&mut self, id: u64) -> bool {
+    pub fn launch_game(&mut self, _id: u64) -> bool {
         if self.game.is_some() {
             warn!("Game already launched");
             return false;
@@ -107,7 +109,7 @@ impl Room {
                 thread::sleep(Duration::from_nanos(1));
             }
         }));
-        
+
         true
     }
 
@@ -116,13 +118,13 @@ impl Room {
      * @param id    The player id
      * @return      If the operation is successful
      */
-    pub fn put_bomb(&mut self, id: u64) -> bool {
+    pub fn put_bomb(&mut self, _id: u64) -> bool {
         if self.game.is_none() {
             warn!("No game launched, so cannot put bomb");
             return false;
         }
         self.game.as_ref().unwrap().lock().unwrap().push_action(Action::PutBomb, 0);
-        
+
         true
     }
 
@@ -132,13 +134,17 @@ impl Room {
      * @param direction The direction chosen
      * @return          If the operation is successful
      */
-    pub fn move_player(&mut self, id: u64, direction: Direction) -> bool {
+    pub fn move_player(&mut self, _id: u64, direction: Direction) -> bool {
         if self.game.is_none() {
             warn!("No game launched, so cannot put bomb");
             return false;
         }
         self.game.as_ref().unwrap().lock().unwrap().push_action(Action::Move(direction), 0);
-        
+
         true
+    }
+
+    pub fn get_map_msg(&self) -> MapMsg {
+        MapMsg::new(self.game.as_ref().unwrap().lock().unwrap().map.clone())
     }
 }

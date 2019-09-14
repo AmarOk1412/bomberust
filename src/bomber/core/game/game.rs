@@ -75,7 +75,6 @@ pub enum Action {
 impl Game {
     pub fn new() -> Game {
         let map = Map::new(13, 11);
-        print!("{}", map);
         let mut players = Vec::new();
         for id in 0..4 {
             players.push(Player {
@@ -122,6 +121,7 @@ impl Game {
                 });
             },
             Action::Move(direction) => {
+                // TODO change increment (NOTE: if bomb under player, should be able to move)
                 let player = &mut self.map.players[player_id as usize];
                 let increment = 1.0;
                 let mut x = player.x;
@@ -146,7 +146,7 @@ impl Game {
                     player.y = y;
                 }
             }
-        }   
+        }
     }
 
     fn execute_actions(&mut self) {
@@ -316,7 +316,5 @@ impl Game {
 
             bomb_idx += 1;
         };
-
-        self.print_map();
     }
 }

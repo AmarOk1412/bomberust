@@ -53,19 +53,19 @@ pub struct RtpBuf {
  */
 pub struct Stream {
     id: u64,
+    data: Arc<Mutex<Option<Vec<u8>>>>,
     stream: TlsStream<TcpStream>,
     rtp_buf: RtpBuf,
 }
 
 /**
- * Manager incoming streams and pass events to the Server 
+ * Manager incoming streams and pass events to the Server
  */
 pub struct PlayerStreamManager {
     current_id: u64,
     pub streams: Vec<Stream>,
-    pub server: Arc<Mutex<Server>>
+    pub server: Arc<Mutex<Server>>,
 }
-
 
 impl PlayerStreamManager {
     /**
@@ -75,7 +75,7 @@ impl PlayerStreamManager {
         PlayerStreamManager {
             current_id: 0,
             streams: Vec::new(),
-            server
+            server,
         }
     }
 
@@ -86,17 +86,19 @@ impl PlayerStreamManager {
      */
     pub fn add_stream(&mut self, stream: TlsStream<TcpStream>) -> u64 {
         let id = self.current_id;
+        let data = Arc::new(Mutex::new(None));
         self.streams.push(Stream {
             id,
             stream,
+            data: data.clone(),
             rtp_buf: RtpBuf {
                 data: [0; 65536],
                 size: 0,
                 wanted: 0,
-            } 
+            }
         });
         self.current_id += 1;
-        self.server.lock().unwrap().join_server(id);
+        self.server.lock().unwrap().join_server(id, data);
         id
     }
 
@@ -154,7 +156,7 @@ impl PlayerStreamManager {
                         let mut pkt_len = size - parsed;
                         let mut store_remaining = true;
                         let mut start = parsed;
-                        
+
                         if rtp_buf.size != 0 || rtp_buf.wanted != 0 {
                             // There is a packet to complete
                             if rtp_buf.size == 1 {
@@ -210,20 +212,20 @@ impl PlayerStreamManager {
             Ok(Async::NotReady) => {}
             Err(_) => { result = false; }
         };
+
+        // Send data
+        let buf = stream.data.lock().unwrap().clone();
+        if buf.is_some() {
+            match socket.write(&*buf.unwrap()) {
+                Err(_) => result = false,
+                _ => {}
+            };
+            *stream.data.lock().unwrap() = None;
+        }
         // Execute packts
         for pkt in pkts {
             self.parse_pkt(pkt, id);
         }
-        if !result {
-            return false;
-        }
-        /* TODO write from server
-        match self.streams[id as usize].stream.write(String::from("HELLO\n").as_bytes()) {
-            Err(_) => {
-                result = false;
-            }
-            _ => {}
-        }*/
         result
     }
 }

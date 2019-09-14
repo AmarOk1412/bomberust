@@ -33,6 +33,7 @@ extern crate rand;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+extern crate typetag;
 extern crate rmp_serde as rmps;
 extern crate tokio;
 extern crate tokio_rustls;

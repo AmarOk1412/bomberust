@@ -29,6 +29,7 @@ use super::super::utils::MapPlayer;
 use super::{Walkable, Item};
 use std::any::Any;
 
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 pub struct DestructibleBox;
 
 impl Walkable for DestructibleBox {
@@ -41,6 +42,7 @@ impl Walkable for DestructibleBox {
     }
 }
 
+#[typetag::serde]
 impl Item for DestructibleBox {
     fn name(&self) -> String {
         String::from("DestructibleBox")
@@ -48,5 +50,9 @@ impl Item for DestructibleBox {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn box_clone(&self) -> Box<dyn Item> {
+        Box::new((*self).clone())
     }
 }

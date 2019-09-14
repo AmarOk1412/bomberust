@@ -33,7 +33,7 @@ use rand::{
 };
 use std::any::Any;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub enum Malus {
     Slow,
     UltraFast,
@@ -65,6 +65,7 @@ impl Walkable for Malus {
     }
 }
 
+#[typetag::serde]
 impl Item for Malus {
     fn name(&self) -> String {
         String::from("Malus")
@@ -72,5 +73,9 @@ impl Item for Malus {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn box_clone(&self) -> Box<dyn Item> {
+        Box::new((*self).clone())
     }
 }

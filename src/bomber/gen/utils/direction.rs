@@ -29,7 +29,6 @@ use rand::{
     distributions::{Distribution, Standard},
     Rng,
 };
-use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 pub enum Direction {

@@ -26,8 +26,8 @@
  **/
 
 use serde::{Deserialize, Serialize};
-use rmps::{Deserializer, Serializer};
 use super::super::gen::utils::Direction;
+use super::super::gen::map::Map;
 
 // This file contains messages which will be wrapped via msgpack.
 // Each messages MUST have a unique msg_type.
@@ -98,6 +98,24 @@ impl MoveMsg {
         MoveMsg {
             msg_type: String::from("move"),
             direction,
+        }
+    }
+}
+
+/**
+ * Message to move a player
+ */
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+pub struct MapMsg {
+    pub msg_type: String,
+    pub map: Map,
+}
+
+impl MapMsg {
+    pub fn new(map: Map) -> MapMsg {
+        MapMsg {
+            msg_type: String::from("map"),
+            map,
         }
     }
 }
