@@ -31,8 +31,12 @@ use rmps::Serializer;
 use std::collections::HashMap;
 use std::sync::{ Arc, Mutex };
 
-
 pub type PlayerStream = Arc<Mutex<Option<Vec<u8>>>>;
+pub type GameStream = Arc<Mutex<Vec<Vec<u8>>>>;
+struct Stream {
+    pub tx: PlayerStream,
+    pub rx: GameStream
+}
 
 /**
  * Represent the main server, manage rooms
@@ -42,7 +46,7 @@ pub struct Server {
     rooms: HashMap<u64, Room>,
     player_to_room: HashMap<u64, u64>,
     current_room_id: u64,
-    player_to_stream: HashMap<u64, PlayerStream>
+    player_to_stream: HashMap<u64, Stream>
 }
 
 impl Server {
@@ -64,11 +68,15 @@ impl Server {
      * @param id    The player id
      * @return      If the operation is successful
      */
-    pub fn join_server(&mut self, id: u64, stream: PlayerStream) -> bool {
+    pub fn join_server(&mut self, id: u64, player_stream: PlayerStream) -> bool {
         info!("Client ({}) is in the lobby", id);
+        let rx = Arc::new(Mutex::new(Vec::new()));
         self.player_to_room.insert(id, 0);
-        self.player_to_stream.insert(id, stream);
-        self.lobby.join(id)
+        self.player_to_stream.insert(id, Stream {
+            tx: player_stream,
+            rx: rx.clone(),
+        });
+        self.lobby.join(id, rx)
     }
 
     /**
@@ -99,7 +107,8 @@ impl Server {
         }
 
         let mut room = Room::new();
-        if room.join(id) {
+        let rx = self.player_to_stream[&id].rx.clone();
+        if room.join(id, rx) {
             self.current_room_id += 1;
             self.rooms.insert(self.current_room_id, room);
             *self.player_to_room.get_mut(&id).unwrap() = self.current_room_id;
@@ -145,11 +154,12 @@ impl Server {
             }
         }
 
+        let rx = self.player_to_stream[&id].rx.clone();
         if join_id == 0 {
-            self.lobby.join(id);
+            self.lobby.join(id, rx);
             *self.player_to_room.get_mut(&id).unwrap() = join_id;
         } else {
-            if self.rooms.get_mut(&join_id).unwrap().join(id) {
+            if self.rooms.get_mut(&join_id).unwrap().join(id, rx) {
                 *self.player_to_room.get_mut(&id).unwrap() = join_id;
                 info!("Client ({}) is now in Room ({})", id, join_id);
             } else {
@@ -254,6 +264,16 @@ impl Server {
         true
     }
 
+    pub fn get_events(&mut self, player: &u64) -> Vec<Vec<u8>> {
+        if self.player_to_stream.contains_key(player) {
+            let mut rx = self.player_to_stream[player].rx.lock().unwrap();
+            let result = rx.clone();
+            *rx = Vec::new();
+            return result;
+        }
+        Vec::new()
+    }
+
     fn send_resources(&mut self, room_id: u64) {
         info!("Sending resources for room {}", room_id);
         let players = self.rooms.get(&room_id).unwrap().players.keys();
@@ -270,7 +290,7 @@ impl Server {
             if self.player_to_stream.contains_key(player) {
                 // TODO is it quick enough? Or add queue
                 info!("Sending resources for player {}", player);
-                *self.player_to_stream[player].lock().unwrap() = Some(send_buf.clone());
+                *self.player_to_stream[player].tx.lock().unwrap() = Some(send_buf.clone());
             }
         }
     }

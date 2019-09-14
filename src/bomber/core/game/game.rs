@@ -27,15 +27,17 @@
 
 use rand::Rng;
 use std::cmp::{max, min};
-use std::collections::{HashSet, VecDeque};
+use std::collections::{ HashMap, HashSet, VecDeque };
 use std::time::{Duration, Instant};
 
-use super::super::super::gen::{Map, item::*, utils::*};
+use crate::bomber::core::Player;
+use crate::bomber::gen::{Map, item::*, utils::*};
+use crate::bomber::net::diff_msg::{ PlayerMove, SerializedEvent };
 
 // TODO redo this file
 
 #[derive(Clone)]
-pub struct Player {
+pub struct GamePlayer {
     id: i32,
     actions: Vec<Action>
 }
@@ -59,8 +61,9 @@ pub struct Bomb {
 
 pub struct Game {
     pub map: Map,
-    pub players: Vec<Player>,
+    pub players: Vec<GamePlayer>,
     pub bombs: Vec<Bomb>,
+    pub game_player_to_player: HashMap<u64, Player>,
     started: Instant,
     last_printed: Instant,
     fps_instants: VecDeque<Instant>
@@ -77,7 +80,7 @@ impl Game {
         let map = Map::new(13, 11);
         let mut players = Vec::new();
         for id in 0..4 {
-            players.push(Player {
+            players.push(GamePlayer {
                 id,
                 actions: Vec::new()
             });
@@ -86,6 +89,7 @@ impl Game {
             map,
             players,
             bombs: Vec::new(),
+            game_player_to_player: HashMap::new(),
             started: Instant::now(),
             last_printed: Instant::now(),
             fps_instants: VecDeque::new(),
@@ -100,6 +104,21 @@ impl Game {
 
     pub fn push_action(&mut self, action: Action, player_id: u64) {
         self.players[player_id as usize].actions.push(action);
+    }
+
+    pub fn link_player(&mut self, player: Player) -> bool {
+        if self.game_player_to_player.len() == self.players.len() {
+            warn!("Can't link player because room is full");
+            return false;
+        }
+        self.game_player_to_player.insert(self.game_player_to_player.len() as u64, player);
+        return true;
+    }
+
+    fn inform_players(&mut self, diff: &Vec<u8>) {
+        for (_, player) in &mut self.game_player_to_player {
+            player.rx.lock().unwrap().push(diff.clone());
+        }
     }
 
     fn execute(&mut self, action: Action, player_id: i32) {
@@ -144,6 +163,13 @@ impl Game {
                 if walkable {
                     player.x = x;
                     player.y = y;
+                    let diff = PlayerMove {
+                        msg_type: String::from("player_move_diff"),
+                        id: player_id,
+                        x,
+                        y,
+                    };
+                    self.inform_players(&diff.to_vec());
                 }
             }
         }

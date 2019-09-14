@@ -214,6 +214,7 @@ impl PlayerStreamManager {
         };
 
         // Send data
+        // TODO remove send buf and only take care of get_events()
         let buf = stream.data.lock().unwrap().clone();
         if buf.is_some() {
             match socket.write(&*buf.unwrap()) {
@@ -221,6 +222,17 @@ impl PlayerStreamManager {
                 _ => {}
             };
             *stream.data.lock().unwrap() = None;
+        }
+        for mut pkt in self.server.lock().unwrap().get_events(&id) {
+            let len = pkt.len() as u16;
+            let mut buf : Vec<u8> = Vec::with_capacity(65536);
+            buf.push((len >> 8) as u8);
+            buf.push((len as u16 % (2 as u16).pow(8)) as u8);
+            buf.append(&mut pkt);
+            match socket.write(&*buf) {
+                Err(_) => result = false,
+                _ => {}
+            };
         }
         // Execute packts
         for pkt in pkts {

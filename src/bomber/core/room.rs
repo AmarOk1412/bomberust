@@ -26,6 +26,7 @@
  **/
 use super::Player;
 use super::game::{Action, Game};
+use super::server::GameStream;
 use super::super::gen::utils::Direction;
 
 use crate::bomber::net::msg::*;
@@ -62,16 +63,19 @@ impl Room {
     /**
      * Join the room
      * @param id    The player id
+     * @param rx    The game stream to fill
      * @return      If the operation is successful
      */
-    pub fn join(&mut self, id: u64) -> bool {
+    pub fn join(&mut self, id: u64, rx: GameStream) -> bool {
         if self.capacity <= self.players.len() as u32 + 1 {
             return false;
         }
         if self.game.is_some() {
             return false;
         }
-        self.players.insert(id, Player {});
+        self.players.insert(id, Player {
+            rx
+        });
         true
     }
 
@@ -87,6 +91,7 @@ impl Room {
         }
         self.players.remove(&id);
         self.players.len() == 0
+        // TODO unlink player from game
     }
 
     /**
@@ -100,6 +105,9 @@ impl Room {
             return false;
         }
         let game = Arc::new(Mutex::new(Game::new()));
+        for (_, player) in &mut self.players {
+            game.lock().unwrap().link_player(player.clone());
+        }
         let game_cloned = game.clone();
         self.game = Some(game);
         self.game_thread = Some(thread::spawn(move || {

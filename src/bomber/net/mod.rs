@@ -26,6 +26,7 @@
  **/
 
 pub mod msg;
+pub mod diff_msg;
 pub mod tlsserver;
 pub mod playerstreammanager;
 
