@@ -39,6 +39,21 @@ impl SerializedEvent for PlayerPutBomb {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct BombExplode {
+    pub msg_type: String,
+    pub w: u64,
+    pub h: u64,
+}
+
+impl SerializedEvent for BombExplode {
+    fn to_vec(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        self.serialize(&mut Serializer::new(&mut buf)).unwrap();
+        buf
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct PlayerDie {
     pub msg_type: String,
     pub id: u64,

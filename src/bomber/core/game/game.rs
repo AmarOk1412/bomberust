@@ -230,6 +230,12 @@ impl Game {
                         exploding_time: Instant::now(),
                         blocked_pos: HashSet::new(),
                     });
+                    let diff = BombExplode {
+                        msg_type: String::from("bomb_explode"),
+                        w: bomb.pos.0 as u64,
+                        h: bomb.pos.1 as u64,
+                    };
+                    pkts.push(diff.to_vec());
                 } else {
                     exploding_radius = bomb.exploding_info.as_ref().unwrap().radius;
                     if exploding_radius == bomb.radius as i32 {
@@ -317,12 +323,33 @@ impl Game {
                                                 let prob = rng.gen_range(0, 5);
                                                 if prob == 1 || prob == 2 {
                                                     let bonus : Bonus = rand::random();
-                                                    self.map.items[pos.0 as usize + self.map.w * pos.1 as usize] = Some(Box::new(bonus));
+                                                    self.map.items[pos.0 as usize + self.map.w * pos.1 as usize] = Some(bonus.box_clone());
+                                                    let diff = CreateItem {
+                                                        msg_type: String::from("create_item"),
+                                                        item: Some(Box::new(bonus)),
+                                                        w: pos.0 as u64,
+                                                        h: pos.1 as u64,
+                                                    };
+                                                    pkts.push(diff.to_vec());
                                                 } else if prob == 3 {
                                                     let malus : Malus = rand::random();
-                                                    self.map.items[pos.0 as usize + self.map.w * pos.1 as usize] = Some(Box::new(malus));
+                                                    self.map.items[pos.0 as usize + self.map.w * pos.1 as usize] = Some(malus.box_clone());
+                                                    let diff = CreateItem {
+                                                        msg_type: String::from("create_item"),
+                                                        item: Some(Box::new(malus)),
+                                                        w: pos.0 as u64,
+                                                        h: pos.1 as u64,
+                                                    };
+                                                    pkts.push(diff.to_vec());
                                                 } else {
                                                     self.map.items[pos.0 as usize + self.map.w * pos.1 as usize] = None;
+
+                                                    let diff = DestroyItem {
+                                                        msg_type: String::from("destroy_item"),
+                                                        w: pos.0 as u64,
+                                                        h: pos.1 as u64,
+                                                    };
+                                                    pkts.push(diff.to_vec());
                                                 }
                                             },
                                             _ => {}
