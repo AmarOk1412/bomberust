@@ -25,11 +25,12 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
+use futures::future;
 use std::fs::File;
 use std::io::BufReader;
 use std::net::ToSocketAddrs;
 use tokio::net::TcpListener;
-use tokio::prelude::{Future, Stream};
+use tokio::prelude::{ Async, Future, Stream };
 use tokio_rustls::{
     TlsAcceptor,
     rustls::{
@@ -37,9 +38,9 @@ use tokio_rustls::{
         internal::pemfile::{ certs, rsa_private_keys }
     },
 };
+use tokio::timer::Interval;
 use std::sync::{Arc, Mutex};
-use std::{thread, time};
-
+use tokio::io::{ AsyncRead, AsyncWrite };
 use super::playerstreammanager::PlayerStreamManager;
 
 /**
@@ -84,18 +85,63 @@ impl TlsServer {
                 let stm = stm.clone();
                 let done = acceptor.accept(stream)
                 .and_then(move |stream| {
-                    let id = stm.lock().unwrap().add_stream(stream);
-                    let process_delay = time::Duration::from_nanos(100);
-                    loop {
-                        // This is done here to be in a tokio Task
-                        if !stm.lock().unwrap().process_stream(id) {
-                            break;
+
+                    let id = stm.lock().unwrap().add_stream();
+                    let id_cloned = id.clone() as usize;
+
+                    // TODO Framed buffer for RTP packets?
+                    let (mut rx, mut tx) = stream.split();
+                    let connected = Arc::new(Mutex::new(true));
+                    let connected_cln = connected.clone();
+                    let worker = Interval::new_interval(std::time::Duration::from_millis(1))
+                    .take_while(move |_| {
+                        future::ok(*connected.lock().unwrap())
+                    })
+                    .for_each(move |_| {
+                        // TODO: Remove this as we have get events
+                        if stm.lock().unwrap().streams[id_cloned].data.lock().unwrap().is_some() {
+                            *connected_cln.lock().unwrap() = tx.poll_write(
+                                &*stm.lock().unwrap().streams[id_cloned].data
+                                .lock().as_ref().unwrap().as_ref().unwrap()
+                            ).is_ok();
+                            *stm.lock().unwrap().streams[id_cloned].data.lock().unwrap() = None;
                         }
-                        thread::sleep(process_delay);
-                    }
-                    Ok(id)
+
+                        if !*connected_cln.lock().unwrap() {
+                            return Ok(());
+                        }
+
+                        let pkts = stm.lock().unwrap().get_events(id_cloned as u64);
+                        for mut pkt in pkts {
+                            let len = pkt.len() as u16;
+                            let mut buf : Vec<u8> = Vec::with_capacity(65536);
+                            buf.push((len >> 8) as u8);
+                            buf.push((len as u16 % (2 as u16).pow(8)) as u8);
+                            buf.append(&mut pkt);
+                            *connected_cln.lock().unwrap() = tx.poll_write(&*buf).is_ok();
+                            if !*connected_cln.lock().unwrap() {
+                                return Ok(());
+                            }
+                        }
+
+                        let mut buffer = vec![0u8; 65536];
+                        match rx.poll_read(&mut buffer) {
+                            Ok(Async::Ready(n)) => {
+                                if n > 0 {
+                                    stm.lock().unwrap().process_stream(id_cloned as u64, &buffer[..n].to_vec());
+                                } else {
+                                    info!("Client disconnected");
+                                    *connected_cln.lock().unwrap() = false;
+                                }
+                            }
+                            Ok(Async::NotReady) => {}
+                            _ => { *connected_cln.lock().unwrap() = false; }
+                        };
+                        Ok(())
+                    }).map_err(|e| error!("=>{}", e));
+                    tokio::spawn(worker);
+                    Ok(())
                 })
-                .map(move |id| warn!("TODO: {:?} quit", id))
                 .map_err(move |err| error!("Error: {:?} - {:?}", err, addr));
                 tokio::spawn(done);
 
