@@ -78,7 +78,7 @@ impl Room {
      * @return      If the operation is successful
      */
     pub fn join(&mut self, id: u64, rx: GameStream) -> bool {
-        if self.capacity <= self.players.len() as u32 + 1 {
+        if self.capacity <= self.players.len() as u32 {
             return false;
         }
         if self.game.is_some() {
