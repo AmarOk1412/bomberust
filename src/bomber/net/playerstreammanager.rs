@@ -114,6 +114,8 @@ impl PlayerStreamManager {
             let mut de = Deserializer::new(cur);
             if msg_type == "create" {
                 self.server.lock().unwrap().create_room(id);
+            } else if msg_type == "leave" {
+                self.server.lock().unwrap().leave_room(id);
             } else if msg_type == "join" {
                 let msg: JoinMsg = Deserialize::deserialize(&mut de).unwrap_or(JoinMsg::new(0));
                 self.server.lock().unwrap().join_room(id, msg.room);

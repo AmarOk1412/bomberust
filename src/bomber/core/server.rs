@@ -102,6 +102,7 @@ impl Server {
         } else {
             let remove = self.rooms.get_mut(&room_id).unwrap().remove_player(id);
             if remove {
+                info!("Remove room ({})", room_id);
                 self.rooms.remove(&room_id);
             }
         }
@@ -129,7 +130,7 @@ impl Server {
      */
     pub fn join_room(&mut self, id: u64, join_id: u64) -> bool {
         if !self.player_to_room.contains_key(&id) {
-            warn!("Can't create room because player is not in the server");
+            warn!("Can't join room because player is not in the server");
             return false;
         }
 
@@ -155,6 +156,7 @@ impl Server {
         } else {
             let remove = self.rooms.get_mut(&room_id).unwrap().remove_player(id);
             if remove {
+                info!("Remove room ({})", room_id);
                 self.rooms.remove(&room_id);
             }
         }
@@ -173,6 +175,39 @@ impl Server {
             }
         }
 
+        true
+    }
+
+    pub fn leave_room(&mut self, id: u64) -> bool {
+        if !self.player_to_room.contains_key(&id) {
+            warn!("Can't leave room because player is not in the server");
+            return false;
+        }
+
+        let room_id = self.player_to_room[&id];
+
+        if room_id == 0 {
+            warn!("Player try to leave lobby");
+            return false;
+        }
+
+        if room_id != 0 && !self.rooms.contains_key(&room_id) {
+            warn!("Can't remove player from Room because rooms doesn't exists");
+            return false;
+        }
+
+        if room_id != 0 {
+            let remove = self.rooms.get_mut(&room_id).unwrap().remove_player(id);
+            if remove {
+                info!("Remove room ({})", room_id);
+                self.rooms.remove(&room_id);
+            }
+        }
+
+        let rx = self.player_to_stream[&id].rx.clone();
+        self.lobby.join(id, rx);
+        *self.player_to_room.get_mut(&id).unwrap() = 0;
+        info!("Client ({}) is now in Room ({})", id, 0);
         true
     }
 
