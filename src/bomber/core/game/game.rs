@@ -180,6 +180,7 @@ impl Game {
                     walkable = self.map.items[x as usize + y as usize * self.map.w].as_ref().unwrap()
                         .walkable(player, &(x as usize, y as usize));
                 }
+                walkable &= self.map.squares[x as usize + y as usize * self.map.w].sq_type.walkable(player, &(x as usize, y as usize));
                 if walkable {
                     player.x = x;
                     player.y = y;

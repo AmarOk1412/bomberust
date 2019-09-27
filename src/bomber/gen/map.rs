@@ -270,7 +270,7 @@ impl fmt::Display for Map {
             }
             // Draw square
             match sq.sq_type {
-                SquareType::Water => map_str.push('W'),
+                SquareType::Water => map_str.push('H'),
                 SquareType::Empty => {
                     match &self.items[x] {
                         Some(i) => {
