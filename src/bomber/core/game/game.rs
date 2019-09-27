@@ -51,6 +51,7 @@ pub struct ExplodingInfo {
 
 #[derive(Clone)]
 pub struct Bomb {
+    pub creator_id: u32,
     pub radius: usize,
     pub shape: Shape,
     pub created_time: Instant,
@@ -127,12 +128,23 @@ impl Game {
             Action::PutBomb => {
                 let player = &self.map.players[player_id as usize];
                 if self.map.items[player.x as usize + player.y as usize * self.map.w].is_some() {
-                    println!("CANNOT START BOMB!"); // TODO change with log
+                    info!("Player {} Cannot start bomb with an item", player_id);
+                    return;
+                }
+                let mut current_bombs = 0;
+                for bomb in &self.bombs {
+                    if bomb.creator_id == player_id as u32 {
+                        current_bombs += 1;
+                    }
+                }
+                if current_bombs >= player.bomb {
+                    info!("Player {} already launch all the bomb", player_id);
                     return;
                 }
                 self.map.items[player.x as usize + player.y as usize * self.map.w] = Some(Box::new(BombItem {}));
                 self.bombs.push(Bomb {
-                    radius: 2,
+                    creator_id: player_id as u32,
+                    radius: player.radius as usize,
                     shape: Shape::Cross,
                     created_time: Instant::now(),
                     duration: Duration::from_secs(3),
@@ -150,7 +162,7 @@ impl Game {
             Action::Move(direction) => {
                 // TODO change increment (NOTE: if bomb under player, should be able to move)
                 let player = &mut self.map.players[player_id as usize];
-                let increment = 1.0;
+                let increment = 1.0 * player.speed_factor;
                 let mut x = player.x;
                 let mut y = player.y;
                 match direction {
@@ -211,8 +223,92 @@ impl Game {
         }
     }
 
+    fn eat_bonus_and_malus(&mut self) {
+        let mut pkts: Vec<Vec<u8>> = Vec::new();
+        let mut idx = 0;
+        for p in &mut self.map.players {
+            if self.map.items[p.x as usize + self.map.w * p.y as usize].is_none() {
+                continue;
+            }
+            let bonus = self.map.items[p.x as usize + self.map.w * p.y as usize].as_ref().unwrap().as_any().downcast_ref::<Bonus>();
+            let mut inform = false;
+            if bonus.is_some() {
+                inform = true;
+                match bonus.unwrap() {
+                    Bonus::ImproveBombRadius => {
+                        info!("Improve player {} bomb radius", idx);
+                        p.radius += 1;
+                    },
+                    Bonus::PunchBombs => {
+                        info!("Player {} can push bombs", idx);
+                        error!("TODO");
+                    },
+                    Bonus::ImproveSpeed => {
+                        info!("Improve player {} speed", idx);
+                        p.speed_factor += 0.1;
+                    },
+                    Bonus::RepelBombs => {
+                        info!("Player {} can repel bombs", idx);
+                        error!("TODO");
+                    },
+                    Bonus::MoreBombs => {
+                        info!("Player {} have more bombs", idx);
+                        p.bomb += 1;
+                    },
+                    _ => {
+                        error!("Unknown bonus");
+                    },
+                }
+            }
+            let malus = self.map.items[p.x as usize + self.map.w * p.y as usize].as_ref().unwrap().as_any().downcast_ref::<Malus>();
+            if malus.is_some() {
+                inform = true;
+                match malus.unwrap() {
+                    Malus::Slow => {
+                        info!("Player {} is now slow", idx);
+                        error!("TODO");
+                    },
+                    Malus::UltraFast => {
+                        info!("Player {} gotta go fast", idx);
+                        error!("TODO");
+                    },
+                    Malus::SpeedBomb => {
+                        info!("Change player {} bomb' speed", idx);
+                        error!("TODO");
+                    },
+                    Malus::DropBombs => {
+                        info!("Player {} drop bombs as fast as they can", idx);
+                        error!("TODO");
+                    },
+                    Malus::InvertedControls => {
+                        info!("Player {} have inverted controls", idx);
+                        error!("TODO");
+                    },
+                    _ => {
+                        error!("Unknown malus");
+                    },
+                }
+            }
+
+            if inform {
+                self.map.items[p.x as usize + self.map.w * p.y as usize] = None;
+                let diff = DestroyItem {
+                    msg_type: String::from("destroy_item"),
+                    w: p.x as u64,
+                    h: p.y as u64,
+                };
+                pkts.push(diff.to_vec());
+            }
+        }
+
+        for pkt in pkts {
+            self.inform_players(&pkt);
+        }
+    }
+
     pub fn event_loop(&mut self) {
         self.execute_actions();
+        self.eat_bonus_and_malus();
         // Explode bomb
         // TODO clean
         let mut bomb_idx = 0;

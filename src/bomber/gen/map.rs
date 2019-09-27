@@ -95,7 +95,10 @@ impl Map {
             let mut posy: usize = 0;
             let mut player = MapPlayer {
                 x: 0.5,
-                y: 0.5
+                y: 0.5,
+                radius: 2,
+                speed_factor: 1.0,
+                bomb: 1,
             };
             while !valid_pos {
                 let random_x : usize = rng.gen();

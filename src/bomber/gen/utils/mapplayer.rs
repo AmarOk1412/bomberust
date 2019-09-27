@@ -31,5 +31,10 @@
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 pub struct MapPlayer {
     pub x: f32,
-    pub y: f32
+    pub y: f32,
+    // TODO improve, add player malus (start, duration, effect replace/update on key)
+    pub radius: u8,
+    pub speed_factor: f32,
+    pub bomb: u8,
+    // TODO pub effects: HashMap<String, PlayerMalus>,
 }
