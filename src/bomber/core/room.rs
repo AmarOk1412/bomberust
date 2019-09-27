@@ -41,6 +41,7 @@ use std::sync::{Arc, Mutex};
  */
 pub struct Room {
     capacity: u32,
+    pid_to_gid: HashMap<u64, u64>,
     pub players: HashMap<u64, Player>,
     pub game: Option<Arc<Mutex<Game>>>,
     pub game_thread: Option<thread::JoinHandle<()>>,
@@ -49,15 +50,25 @@ pub struct Room {
 impl Room {
     /**
      * Creates a Room
+     * @param capacity
+     * @return  The created Room
+     */
+    pub fn new_with_capacity(capacity: u32) -> Room {
+        Room {
+            capacity,
+            players: HashMap::new(),
+            game: None,
+            game_thread: None,
+            pid_to_gid: HashMap::new()
+        }
+    }
+
+    /**
+     * Creates a Room with a capacity of 2048
      * @return  The created Room
      */
     pub fn new() -> Room {
-        Room {
-            capacity: 2048,
-            players: HashMap::new(),
-            game: None,
-            game_thread: None
-        }
+        Room::new_with_capacity(2048)
     }
 
     /**
@@ -99,14 +110,21 @@ impl Room {
      * @param id    The player id who launch the game
      * @return      If the operation is successful
      */
-    pub fn launch_game(&mut self, _id: u64) -> bool {
+    pub fn launch_game(&mut self, id: u64) -> bool {
         if self.game.is_some() {
             warn!("Game already launched");
             return false;
         }
         let game = Arc::new(Mutex::new(Game::new()));
-        for (_, player) in &mut self.players {
-            game.lock().unwrap().link_player(player.clone());
+        for (pid, player) in &mut self.players {
+            let gid = game.lock().unwrap().link_player(player.clone());
+            if gid.is_none() {
+                continue;
+            }
+            let gid = gid.unwrap();
+            self.pid_to_gid.insert(
+                *pid, gid
+            );
         }
         let game_cloned = game.clone();
         self.game = Some(game);
@@ -121,17 +139,31 @@ impl Room {
         true
     }
 
+    fn player_id_to_game_id(&self, pid: u64) -> Option<u64> {
+        if !self.pid_to_gid.contains_key(&pid) {
+            warn!("No player found for pid {}", pid);
+            return None;
+        }
+        Some(self.pid_to_gid[&pid])
+    }
+
     /**
      * Add a bomb
      * @param id    The player id
      * @return      If the operation is successful
      */
-    pub fn put_bomb(&mut self, _id: u64) -> bool {
+    pub fn put_bomb(&mut self, id: u64) -> bool {
         if self.game.is_none() {
             warn!("No game launched, so cannot put bomb");
             return false;
         }
-        self.game.as_ref().unwrap().lock().unwrap().push_action(Action::PutBomb, 0);
+        let gid = self.player_id_to_game_id(id);
+        if gid.is_none() {
+            return false;
+        }
+        self.game.as_ref().unwrap().lock().unwrap().push_action(
+            Action::PutBomb, gid.unwrap()
+        );
 
         true
     }
@@ -142,12 +174,18 @@ impl Room {
      * @param direction The direction chosen
      * @return          If the operation is successful
      */
-    pub fn move_player(&mut self, _id: u64, direction: Direction) -> bool {
+    pub fn move_player(&mut self, id: u64, direction: Direction) -> bool {
         if self.game.is_none() {
             warn!("No game launched, so cannot put bomb");
             return false;
         }
-        self.game.as_ref().unwrap().lock().unwrap().push_action(Action::Move(direction), 0);
+        let gid = self.player_id_to_game_id(id);
+        if gid.is_none() {
+            return false;
+        }
+        self.game.as_ref().unwrap().lock().unwrap().push_action(
+            Action::Move(direction), gid.unwrap()
+        );
 
         true
     }

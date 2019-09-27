@@ -106,13 +106,14 @@ impl Game {
         self.players[player_id as usize].actions.push(action);
     }
 
-    pub fn link_player(&mut self, player: Player) -> bool {
+    pub fn link_player(&mut self, player: Player) -> Option<u64> {
         if self.game_player_to_player.len() == self.players.len() {
             warn!("Can't link player because room is full");
-            return false;
+            return None;
         }
-        self.game_player_to_player.insert(self.game_player_to_player.len() as u64, player);
-        return true;
+        let id = self.game_player_to_player.len() as u64;
+        self.game_player_to_player.insert(id, player);
+        Some(id)
     }
 
     fn inform_players(&mut self, diff: &Vec<u8>) {

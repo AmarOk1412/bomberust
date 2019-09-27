@@ -106,7 +106,7 @@ impl Server {
             }
         }
 
-        let mut room = Room::new();
+        let mut room = Room::new_with_capacity(4);
         let rx = self.player_to_stream[&id].rx.clone();
         if room.join(id, rx) {
             self.current_room_id += 1;
@@ -115,7 +115,7 @@ impl Server {
             info!("Client ({}) is now in Room ({})", id, self.current_room_id);
         } else {
             *self.player_to_room.get_mut(&id).unwrap() = 0;
-            info!("Client ({}) is now in Room ({})", id, 0);
+            warn!("Client ({}) can't join room. Going to room ({})", id, 0);
         }
 
         true
@@ -145,6 +145,11 @@ impl Server {
             return false;
         }
 
+        if !self.rooms.contains_key(&join_id) {
+            warn!("Player try to join inexistant room {}", join_id);
+            return false;
+        }
+
         if room_id == 0 {
             self.lobby.remove_player(id);
         } else {
@@ -164,7 +169,7 @@ impl Server {
                 info!("Client ({}) is now in Room ({})", id, join_id);
             } else {
                 *self.player_to_room.get_mut(&id).unwrap() = 0;
-                info!("Client ({}) is now in Room ({})", id, 0);
+                warn!("Client ({}) can't join room. Going to room ({})", id, 0);
             }
         }
 
