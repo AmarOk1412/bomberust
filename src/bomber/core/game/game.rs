@@ -39,7 +39,8 @@ use crate::bomber::net::diff_msg::*;
 #[derive(Clone)]
 pub struct GamePlayer {
     id: i32,
-    actions: Vec<Action>
+    actions: Vec<Action>,
+    effects: Vec<PlayerEffect>
 }
 
 #[derive(Clone)]
@@ -83,7 +84,8 @@ impl Game {
         for id in 0..4 {
             players.push(GamePlayer {
                 id,
-                actions: Vec::new()
+                actions: Vec::new(),
+                effects: Vec::new()
             });
         }
         Game {
@@ -162,7 +164,21 @@ impl Game {
             Action::Move(direction) => {
                 // TODO change increment (NOTE: if bomb under player, should be able to move)
                 let player = &mut self.map.players[player_id as usize];
-                let increment = 1.0 * player.speed_factor;
+                let mut increment = 1.0 * (player.speed_factor as f32 / 1000.0);
+                let mut inverted = false;
+                for effect in &self.players[player_id as usize].effects {
+                    if effect.malus.is_some() {
+                        if effect.malus == Some(Malus::InvertedControls)
+                        && !inverted {
+                            inverted = true;
+                            increment *= -1.0;
+                        } else if effect.malus == Some(Malus::UltraFast) {
+                            increment *= 4.0;
+                        } else if effect.malus == Some(Malus::Slow) {
+                            increment /= 4.0;
+                        }
+                    }
+                }
                 let mut x = player.x;
                 let mut y = player.y;
                 match direction {
@@ -229,6 +245,7 @@ impl Game {
         let mut idx = 0;
         for p in &mut self.map.players {
             if self.map.items[p.x as usize + self.map.w * p.y as usize].is_none() {
+                idx += 1;
                 continue;
             }
             let bonus = self.map.items[p.x as usize + self.map.w * p.y as usize].as_ref().unwrap().as_any().downcast_ref::<Bonus>();
@@ -242,14 +259,24 @@ impl Game {
                     },
                     Bonus::PunchBombs => {
                         info!("Player {} can push bombs", idx);
+                        self.players[idx as usize].effects.push(PlayerEffect {
+                            end: None,
+                            malus: None,
+                            bonus: Some(Bonus::PunchBombs)
+                        });
                         error!("TODO");
                     },
                     Bonus::ImproveSpeed => {
                         info!("Improve player {} speed", idx);
-                        p.speed_factor += 0.1;
+                        p.speed_factor += 100;
                     },
                     Bonus::RepelBombs => {
                         info!("Player {} can repel bombs", idx);
+                        self.players[idx as usize].effects.push(PlayerEffect {
+                            end: None,
+                            malus: None,
+                            bonus: Some(Bonus::RepelBombs)
+                        });
                         error!("TODO");
                     },
                     Bonus::MoreBombs => {
@@ -267,23 +294,45 @@ impl Game {
                 match malus.unwrap() {
                     Malus::Slow => {
                         info!("Player {} is now slow", idx);
-                        error!("TODO");
+                        self.players[idx as usize].effects.push(PlayerEffect {
+                            end: Some(Instant::now() + Duration::from_secs(10)),
+                            malus: Some(Malus::Slow),
+                            bonus: None,
+                        });
                     },
                     Malus::UltraFast => {
                         info!("Player {} gotta go fast", idx);
-                        error!("TODO");
+                        self.players[idx as usize].effects.push(PlayerEffect {
+                            end: Some(Instant::now() + Duration::from_secs(10)),
+                            malus: Some(Malus::UltraFast),
+                            bonus: None,
+                        });
                     },
                     Malus::SpeedBomb => {
                         info!("Change player {} bomb' speed", idx);
+                        self.players[idx as usize].effects.push(PlayerEffect {
+                            end: Some(Instant::now() + Duration::from_secs(10)),
+                            malus: Some(Malus::SpeedBomb),
+                            bonus: None,
+                        });
                         error!("TODO");
                     },
                     Malus::DropBombs => {
                         info!("Player {} drop bombs as fast as they can", idx);
+                        self.players[idx as usize].effects.push(PlayerEffect {
+                            end: Some(Instant::now() + Duration::from_secs(10)),
+                            malus: Some(Malus::DropBombs),
+                            bonus: None,
+                        });
                         error!("TODO");
                     },
                     Malus::InvertedControls => {
                         info!("Player {} have inverted controls", idx);
-                        error!("TODO");
+                        self.players[idx as usize].effects.push(PlayerEffect {
+                            end: Some(Instant::now() + Duration::from_secs(10)),
+                            malus: Some(Malus::InvertedControls),
+                            bonus: None,
+                        });
                     },
                     _ => {
                         error!("Unknown malus");
@@ -300,10 +349,23 @@ impl Game {
                 };
                 pkts.push(diff.to_vec());
             }
+            idx += 1;
         }
 
         for pkt in pkts {
             self.inform_players(&pkt);
+        }
+
+        // Remove effects
+        for p in &mut self.players {
+            let mut idx = 0;
+            for effect in p.effects.clone() {
+                if effect.end.is_some() && effect.end.unwrap() < Instant::now() {
+                    p.effects.remove(idx as usize);
+                } else {
+                    idx += 1;
+                }
+            }
         }
     }
 

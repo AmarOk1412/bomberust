@@ -25,14 +25,15 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-pub mod direction;
-pub mod mapplayer;
-pub mod shape;
-pub mod square;
-pub mod effect;
+use std::time::Instant;
+use crate::bomber::gen::item::{Bonus, Malus};
 
-pub use direction::Direction;
-pub use effect::PlayerEffect;
-pub use mapplayer::MapPlayer;
-pub use shape::Shape;
-pub use square::{Square, SquareType};
+/**
+ * Represent a player effet
+ */
+#[derive(Clone)]
+pub struct PlayerEffect {
+    pub end: Option<Instant>,
+    pub malus: Option<Malus>,
+    pub bonus: Option<Bonus>,
+}

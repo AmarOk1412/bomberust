@@ -97,7 +97,7 @@ impl Map {
                 x: 0.5,
                 y: 0.5,
                 radius: 2,
-                speed_factor: 1.0,
+                speed_factor: 1000,
                 bomb: 1,
             };
             while !valid_pos {
