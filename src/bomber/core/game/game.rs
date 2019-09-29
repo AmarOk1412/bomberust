@@ -117,7 +117,13 @@ impl Game {
             return None;
         }
         let id = self.game_player_to_player.len() as u64;
+        let diff = PlayerIdentity {
+            msg_type: String::from("player_identity"),
+            id,
+        };
+        player.rx.lock().unwrap().push(diff.to_vec());
         self.game_player_to_player.insert(id, player);
+
         Some(id)
     }
 

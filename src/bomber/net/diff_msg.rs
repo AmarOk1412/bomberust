@@ -68,6 +68,20 @@ impl SerializedEvent for PlayerDie {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct PlayerIdentity {
+    pub msg_type: String,
+    pub id: u64,
+}
+
+impl SerializedEvent for PlayerIdentity {
+    fn to_vec(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        self.serialize(&mut Serializer::new(&mut buf)).unwrap();
+        buf
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct CreateItem {
     pub msg_type: String,
     pub item: Option<InteractiveItem>,
