@@ -111,7 +111,7 @@ impl Room {
      * @return      If the operation is successful
      */
     pub fn launch_game(&mut self, id: u64) -> bool {
-        if self.game.is_some() {
+        if self.game.is_some() && !self.game.as_ref().unwrap().lock().unwrap().finished() {
             warn!("Game already launched");
             return false;
         }
@@ -132,6 +132,10 @@ impl Room {
             game_cloned.lock().unwrap().start();
             loop {
                 game_cloned.lock().unwrap().event_loop();
+                if game_cloned.lock().unwrap().finished() {
+                    info!("Game is finished");
+                    break;
+                }
                 thread::sleep(Duration::from_nanos(1));
             }
         }));

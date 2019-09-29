@@ -67,6 +67,7 @@ pub struct Game {
     pub bombs: Vec<Bomb>,
     pub game_player_to_player: HashMap<u64, Player>,
     started: Instant,
+    players_len: u32,
     last_printed: Instant,
     fps_instants: VecDeque<Instant>
 }
@@ -91,6 +92,7 @@ impl Game {
         Game {
             map,
             players,
+            players_len: 4,
             bombs: Vec::new(),
             game_player_to_player: HashMap::new(),
             started: Instant::now(),
@@ -123,6 +125,10 @@ impl Game {
         for (_, player) in &mut self.game_player_to_player {
             player.rx.lock().unwrap().push(diff.clone());
         }
+    }
+
+    pub fn finished(&self) -> bool {
+        self.map.players.len() <= self.players_len as usize - self.game_player_to_player.len()
     }
 
     fn execute(&mut self, action: Action, player_id: i32) {
