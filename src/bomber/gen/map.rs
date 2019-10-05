@@ -99,6 +99,7 @@ impl Map {
                 radius: 2,
                 speed_factor: 1000,
                 bomb: 1,
+                dead: false,
             };
             while !valid_pos {
                 let random_x : usize = rng.gen();
@@ -264,6 +265,9 @@ impl fmt::Display for Map {
             // Test if it's a player
             let mut is_player_here = false;
             for p in &self.players {
+                if p.dead {
+                    continue;
+                }
                 if (p.x as usize + p.y as usize * self.w) == x {
                     is_player_here = true;
                 }

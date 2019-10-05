@@ -134,10 +134,19 @@ impl Game {
     }
 
     pub fn finished(&self) -> bool {
-        self.map.players.len() <= self.players_len as usize - self.game_player_to_player.len()
+        let mut deads = 0;
+        for p in &self.map.players {
+            if p.dead {
+                deads += 1;
+            }
+        }
+        deads >= self.game_player_to_player.len()
     }
 
     fn execute(&mut self, action: Action, player_id: i32) {
+        if self.map.players[player_id as usize].dead {
+            return;
+        }
         match action {
             Action::PutBomb => {
                 let player = &self.map.players[player_id as usize];
@@ -256,6 +265,10 @@ impl Game {
         let mut pkts: Vec<Vec<u8>> = Vec::new();
         let mut idx = 0;
         for p in &mut self.map.players {
+            if p.dead {
+                idx += 1;
+                continue;
+            }
             if self.map.items[p.x as usize + self.map.w * p.y as usize].is_none() {
                 idx += 1;
                 continue;
@@ -529,21 +542,18 @@ impl Game {
                                     }
                                     // Destroy players
                                     let mut p = 0;
-                                    loop {
-                                        if p == self.map.players.len() {
-                                            break;
-                                        }
-                                        let player = &self.map.players[p];
-                                        if player.x as usize == pos.0 as usize && player.y as usize == pos.1 as usize {
+                                    for player in &mut self.map.players {
+                                        if !player.dead
+                                        && player.x as usize == pos.0 as usize
+                                        && player.y as usize == pos.1 as usize {
                                             let diff = PlayerDie {
                                                 msg_type: String::from("player_die"),
                                                 id: p as u64,
                                             };
                                             pkts.push(diff.to_vec());
-                                            self.map.players.remove(p);
-                                        } else {
-                                            p += 1;
+                                            player.dead = true;
                                         }
+                                        p += 1;
                                     }
                                 }
                             }

@@ -35,4 +35,5 @@ pub struct MapPlayer {
     pub radius: u32,
     pub speed_factor: u32,
     pub bomb: u32,
+    pub dead: bool,
 }
