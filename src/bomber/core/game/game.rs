@@ -29,6 +29,7 @@ use rand::Rng;
 use std::cmp::{max, min};
 use std::collections::{ HashMap, HashSet, VecDeque };
 use std::time::{Duration, Instant};
+use std::f64::consts::PI;
 
 use crate::bomber::core::Player;
 use crate::bomber::gen::{Map, item::*, utils::*};
@@ -47,7 +48,8 @@ pub struct GamePlayer {
 pub struct ExplodingInfo {
     radius: i32,
     exploding_time: Instant,
-    blocked_pos: HashSet<(i32, i32)>
+    blocked_pos: HashSet<(i32, i32)>,
+    exploding_pos: HashSet<(i32, i32)>
 }
 
 #[derive(Clone)]
@@ -394,179 +396,191 @@ impl Game {
         }
     }
 
-    pub fn event_loop(&mut self) {
-        self.execute_actions();
-        self.eat_bonus_and_malus();
-        // Explode bomb
-        // TODO clean
-        let mut bomb_idx = 0;
-        let mut pkts = Vec::new();
-        loop {
-            if bomb_idx >= self.bombs.len() {
-                break;
+    fn update_exploding_radius(&mut self, bomb_idx: usize) -> Option<i32> {
+        let mut bomb = &mut self.bombs[bomb_idx];
+
+        // Explode
+        let mut exploding_radius = 0;
+        if bomb.exploding_info.is_none() {
+            bomb.exploding_info = Some(ExplodingInfo {
+                radius: 0,
+                exploding_time: Instant::now(),
+                blocked_pos: HashSet::new(),
+                exploding_pos: HashSet::new(),
+            });
+            let diff = BombExplode {
+                msg_type: String::from("bomb_explode"),
+                w: bomb.pos.0 as u64,
+                h: bomb.pos.1 as u64,
+            };
+            self.inform_players(&diff.to_vec());
+        } else {
+            exploding_radius = bomb.exploding_info.as_ref().unwrap().radius;
+            if exploding_radius == bomb.radius as i32 {
+                // End of the bomb
+                self.map.items[bomb.pos.0 + self.map.w * bomb.pos.1] = None;
+                self.bombs.remove(bomb_idx);
+                return None;
             }
-            let mut bomb = &mut self.bombs[bomb_idx];
-            if Instant::now() - bomb.duration >= bomb.created_time {
-                // Explode
-                let mut exploding_radius = 0;
-                if bomb.exploding_info.is_none() {
-                    bomb.exploding_info = Some(ExplodingInfo {
-                        radius: 0,
-                        exploding_time: Instant::now(),
-                        blocked_pos: HashSet::new(),
-                    });
-                    let diff = BombExplode {
-                        msg_type: String::from("bomb_explode"),
-                        w: bomb.pos.0 as u64,
-                        h: bomb.pos.1 as u64,
-                    };
-                    pkts.push(diff.to_vec());
-                } else {
-                    exploding_radius = bomb.exploding_info.as_ref().unwrap().radius;
-                    if exploding_radius == bomb.radius as i32 {
-                        // End of the bomb
-                        self.map.items[bomb.pos.0 + self.map.w * bomb.pos.1] = None;
-                        self.bombs.remove(bomb_idx);
+
+            let exploding_time = bomb.exploding_info.as_ref().unwrap().exploding_time;
+            if Instant::now() - Duration::from_millis((exploding_radius as u64 + 1) * 100) >= exploding_time {
+                exploding_radius += 1;
+                match bomb.exploding_info {
+                    Some(ref mut info) => {
+                        info.radius = exploding_radius;
+                    }
+                    _ => {}
+                };
+            }
+        }
+        Some(exploding_radius)
+    }
+
+    fn update_exploding_pos(&mut self, bomb_idx: usize) {
+        let mut bomb = &mut self.bombs[bomb_idx];
+        let radius = bomb.exploding_info.as_ref().unwrap().radius;
+        for r in 0..(radius + 1) {
+            // TODO other than Cross
+            for angle in (0..360).step_by(90) {
+                let angle = (angle as f64 / 360.) * (2. * PI);
+                let x = bomb.pos.0 as i32 + (angle.cos() as i32 * r);
+                let y = bomb.pos.1 as i32 + (angle.sin() as i32 * r);
+                if x < 0 || x >= self.map.w as i32 || y < 0 || y >= self.map.h as i32 {
+                    continue;
+                }
+                let pos = (x, y);
+                if bomb.exploding_info.as_ref().unwrap().blocked_pos.contains(&pos) {
+                    continue; // Already checked
+                }
+                let pos = (x as usize, y as usize);
+                // Check if path to the bomb is blocked
+                let mut blocked = false;
+                for pr in 0..r {
+                    let px = bomb.pos.0 as i32 + (angle.cos() as i32 * pr);
+                    let py = bomb.pos.1 as i32 + (angle.sin() as i32 * pr);
+                    if bomb.exploding_info.as_ref().unwrap().blocked_pos.contains(&(px, py)) {
                         continue;
                     }
-
-                    let exploding_time = bomb.exploding_info.as_ref().unwrap().exploding_time;
-                    //println!("{:?} {:?}", exploding_time, Instant::now());
-                    if Instant::now() - Duration::from_millis((exploding_radius as u64 + 1) * 100) >= exploding_time {
-                        exploding_radius += 1;
-                        match bomb.exploding_info {
-                            Some(ref mut info) => {
-                                info.radius = exploding_radius;
-                            }
-                            _ => {}
-                        };
+                }
+                let (block, clear) = self.map.squares[pos.0 + self.map.w * pos.1].sq_type.explode_event(&(pos.0, pos.1), &bomb.pos);
+                blocked = block;
+                if !blocked {
+                    let item = &self.map.items[pos.0 + self.map.w * pos.1];
+                    if item.is_some() {
+                        // TODO as_ref for moving blocked_pos
+                        let (iblock, _) = item.as_ref().unwrap().explode_event(&pos, &bomb.pos);
+                        blocked = iblock;
                     }
                 }
-
-                for r in 0..(exploding_radius + 1) {
-                    for x in (-r)..(r+1) {
-                        for y in (-r)..(r+1) {
-                            let pos = (bomb.pos.0 as i32 + x, bomb.pos.1 as i32 + y);
-                            if pos.0 < 0 || pos.0 >= self.map.w as i32 {
-                                continue;
-                            }
-                            if pos.1 < 0 || pos.1 >= self.map.h as i32 {
-                                continue;
-                            }
-                            // TODO other than Cross
-                            if pos.1 != bomb.pos.1 as i32 && pos.0 != bomb.pos.0 as i32 {
-                                continue;
-                            }
-                            let (block, clear) = self.map.squares[pos.0 as usize + self.map.w * pos.1 as usize].sq_type.explode_event(&(pos.0 as usize, pos.1 as usize), &bomb.pos);
-                            if block {
-                                bomb.exploding_info.as_mut().unwrap().blocked_pos.insert(pos);
-                            }
-                            if clear {
-                                // Test if any block in the path to the bomb
-                                let mut clear = clear;
-                                if pos.0 != bomb.pos.0 as i32 {
-                                    let rev = pos.0 < bomb.pos.0 as i32;
-                                    let min =  min(pos.0, bomb.pos.0 as i32);
-                                    let max =  max(pos.0, bomb.pos.0 as i32);
-                                    let range: Box<dyn Iterator<Item = i32>> = if rev {Box::new((min..max).rev())} else { Box::new(min..max) };
-
-                                    for x in range {
-                                        if bomb.exploding_info.as_ref().unwrap().blocked_pos.contains(&(x, pos.1)) {
-                                            clear = false;
-                                            break;
-                                        }
-                                    }
-                                } else if pos.1 != bomb.pos.1 as i32 {
-                                    let rev = pos.1 < bomb.pos.1 as i32;
-                                    let min =  min(pos.1, bomb.pos.1 as i32);
-                                    let max =  max(pos.1, bomb.pos.1 as i32);
-                                    let range: Box<dyn Iterator<Item = i32>> = if rev {Box::new((min..max).rev())} else { Box::new(min..max) };
-
-                                    for y in range {
-                                        if bomb.exploding_info.as_ref().unwrap().blocked_pos.contains(&(pos.0, y)) {
-                                            clear = false;
-                                            break;
-                                        }
-                                    }
-                                }
-                                // TODO improve with raycasting tacting (angle + get distance to the next case touched)
-                                if clear {
-                                    // TODO if bomb, activate
-                                    // Destroy items in zone
-                                    let item = &self.map.items[pos.0 as usize + self.map.w * pos.1 as usize];
-                                    if item.is_some() {
-                                        // TODO as_ref for moving blocked_pos
-                                        let (block, _) = item.as_ref().unwrap().explode_event(&(pos.0 as usize, pos.1 as usize), &bomb.pos);
-                                        if block {
-                                            bomb.exploding_info.as_mut().unwrap().blocked_pos.insert(pos);
-                                        }
-
-                                        let db = self.map.items[pos.0 as usize + self.map.w * pos.1 as usize].as_ref().unwrap().as_any().downcast_ref::<DestructibleBox>();
-                                        match db {
-                                            Some(_) => {
-                                                let mut rng = rand::thread_rng();
-                                                let prob = rng.gen_range(0, 5);
-                                                if prob == 1 || prob == 2 {
-                                                    let bonus : Bonus = rand::random();
-                                                    self.map.items[pos.0 as usize + self.map.w * pos.1 as usize] = Some(bonus.box_clone());
-                                                    let diff = CreateItem {
-                                                        msg_type: String::from("create_item"),
-                                                        item: Some(Box::new(bonus)),
-                                                        w: pos.0 as u64,
-                                                        h: pos.1 as u64,
-                                                    };
-                                                    pkts.push(diff.to_vec());
-                                                } else if prob == 3 {
-                                                    let malus : Malus = rand::random();
-                                                    self.map.items[pos.0 as usize + self.map.w * pos.1 as usize] = Some(malus.box_clone());
-                                                    let diff = CreateItem {
-                                                        msg_type: String::from("create_item"),
-                                                        item: Some(Box::new(malus)),
-                                                        w: pos.0 as u64,
-                                                        h: pos.1 as u64,
-                                                    };
-                                                    pkts.push(diff.to_vec());
-                                                } else {
-                                                    self.map.items[pos.0 as usize + self.map.w * pos.1 as usize] = None;
-
-                                                    let diff = DestroyItem {
-                                                        msg_type: String::from("destroy_item"),
-                                                        w: pos.0 as u64,
-                                                        h: pos.1 as u64,
-                                                    };
-                                                    pkts.push(diff.to_vec());
-                                                }
-                                            },
-                                            _ => {}
-                                        }
-                                    }
-                                    // Destroy players
-                                    let mut p = 0;
-                                    for player in &mut self.map.players {
-                                        if !player.dead
-                                        && player.x as usize == pos.0 as usize
-                                        && player.y as usize == pos.1 as usize {
-                                            let diff = PlayerDie {
-                                                msg_type: String::from("player_die"),
-                                                id: p as u64,
-                                            };
-                                            pkts.push(diff.to_vec());
-                                            player.dead = true;
-                                        }
-                                        p += 1;
-                                    }
-                                }
-                            }
-                        }
-                    }
+                // Check if clear square
+                if clear {
+                    bomb.exploding_info.as_mut().unwrap().exploding_pos.insert((pos.0 as i32, pos.1 as i32));
+                }
+                // Check if bomb is stopped
+                if blocked && clear {
+                    let nxt_x = bomb.pos.0 as i32 + (angle.cos() as i32 * (r + 1));
+                    let nxt_y = bomb.pos.1 as i32 + (angle.sin() as i32 * (r + 1));
+                    bomb.exploding_info.as_mut().unwrap().blocked_pos.insert((nxt_x, nxt_y));
+                } else if blocked {
+                    bomb.exploding_info.as_mut().unwrap().blocked_pos.insert((pos.0 as i32, pos.1 as i32));
                 }
             }
+        }
+    }
 
-            bomb_idx += 1;
+    fn bomb_events(&mut self) {
+        let mut explodings_bombs_idx = Vec::new();
+        for bomb_idx in 0..self.bombs.len() {
+            let bomb = &mut self.bombs[bomb_idx];
+            // Check if exploding
+            if Instant::now() - bomb.duration < bomb.created_time {
+                continue;
+            }
+            explodings_bombs_idx.push(bomb_idx);
+        }
+        let mut pkts = Vec::new();
+        for bomb_idx in explodings_bombs_idx {
+            // Explode bomb
+            let exploding_radius = self.update_exploding_radius(bomb_idx);
+            if exploding_radius.is_none() {
+                continue;
+            }
+            self.update_exploding_pos(bomb_idx);
+
+            let bomb = &self.bombs[bomb_idx];
+            for (x, y) in &bomb.exploding_info.as_ref().unwrap().exploding_pos {
+                let x = *x;
+                let y = *y;
+                // Destroy items in zone
+                let item = &self.map.items[x as usize + self.map.w * y as usize];
+                if item.is_some() {
+                    let db = self.map.items[x as usize + self.map.w * y as usize].as_ref().unwrap().as_any().downcast_ref::<DestructibleBox>();
+                    match db {
+                        Some(_) => {
+                            let mut rng = rand::thread_rng();
+                            let prob = rng.gen_range(0, 5);
+                            if prob == 1 || prob == 2 {
+                                let bonus : Bonus = rand::random();
+                                self.map.items[x as usize + self.map.w * y as usize] = Some(bonus.box_clone());
+                                let diff = CreateItem {
+                                    msg_type: String::from("create_item"),
+                                    item: Some(Box::new(bonus)),
+                                    w: x as u64,
+                                    h: y as u64,
+                                };
+                                pkts.push(diff.to_vec());
+                            } else if prob == 3 {
+                                let malus : Malus = rand::random();
+                                self.map.items[x as usize + self.map.w * y as usize] = Some(malus.box_clone());
+                                let diff = CreateItem {
+                                    msg_type: String::from("create_item"),
+                                    item: Some(Box::new(malus)),
+                                    w: x as u64,
+                                    h: y as u64,
+                                };
+                                pkts.push(diff.to_vec());
+                            } else {
+                                self.map.items[x as usize + self.map.w * y as usize] = None;
+
+                                let diff = DestroyItem {
+                                    msg_type: String::from("destroy_item"),
+                                    w: x as u64,
+                                    h: y as u64,
+                                };
+                                pkts.push(diff.to_vec());
+                            }
+                        },
+                        _ => {}
+                    }
+                }
+
+                // Destroy players
+                let mut p = 0;
+                for player in &mut self.map.players {
+                    if !player.dead
+                    && player.x as usize == x as usize
+                    && player.y as usize == y as usize {
+                        let diff = PlayerDie {
+                            msg_type: String::from("player_die"),
+                            id: p as u64,
+                        };
+                        pkts.push(diff.to_vec());
+                        player.dead = true;
+                    }
+                    p += 1;
+                }
+            }
         };
 
         for pkt in pkts {
             self.inform_players(&pkt);
         }
+    }
+
+    pub fn event_loop(&mut self) {
+        self.execute_actions();
+        self.eat_bonus_and_malus();
+        self.bomb_events();
     }
 }
