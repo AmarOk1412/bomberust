@@ -69,6 +69,7 @@ pub struct Game {
     pub bombs: Vec<Bomb>,
     pub game_player_to_player: HashMap<u64, Player>,
     started: Instant,
+    duration: Duration,
     players_len: u32,
     last_printed: Instant,
     fps_instants: VecDeque<Instant>
@@ -98,6 +99,7 @@ impl Game {
             bombs: Vec::new(),
             game_player_to_player: HashMap::new(),
             started: Instant::now(),
+            duration: Duration::from_secs(30),
             last_printed: Instant::now(),
             fps_instants: VecDeque::new(),
         }
@@ -137,10 +139,13 @@ impl Game {
 
     pub fn finished(&self) -> bool {
         let mut deads = 0;
+        let mut idx = 0;
         for p in &self.map.players {
-            if p.dead {
+            if p.dead
+            && idx < self.game_player_to_player.len() /* linked */ {
                 deads += 1;
             }
+            idx += 1;
         }
         deads >= self.game_player_to_player.len()
     }
@@ -489,6 +494,38 @@ impl Game {
         }
     }
 
+    fn kill_players(&mut self, x: i32, y: i32) {
+        let mut pkts = Vec::new();
+        let mut p = 0;
+        for player in &mut self.map.players {
+            if !player.dead
+            && player.x as usize == x as usize
+            && player.y as usize == y as usize {
+                let diff = PlayerDie {
+                    msg_type: String::from("player_die"),
+                    id: p as u64,
+                };
+                pkts.push(diff.to_vec());
+                player.dead = true;
+            }
+            p += 1;
+        }
+        for pkt in pkts {
+            self.inform_players(&pkt);
+        }
+    }
+
+    fn remove_item(&mut self, x: i32, y: i32) {
+        self.map.items[x as usize + self.map.w * y as usize] = None;
+
+        let diff = DestroyItem {
+            msg_type: String::from("destroy_item"),
+            w: x as u64,
+            h: y as u64,
+        };
+        self.inform_players(&diff.to_vec());
+    }
+
     fn bomb_events(&mut self) {
         let mut explodings_bombs_idx = Vec::new();
         for bomb_idx in 0..self.bombs.len() {
@@ -508,10 +545,8 @@ impl Game {
             }
             self.update_exploding_pos(bomb_idx);
 
-            let bomb = &self.bombs[bomb_idx];
-            for (x, y) in &bomb.exploding_info.as_ref().unwrap().exploding_pos {
-                let x = *x;
-                let y = *y;
+            for (x, y) in self.bombs[bomb_idx].exploding_info.as_ref().unwrap().exploding_pos.clone() {
+                self.kill_players(x, y);
                 // Destroy items in zone
                 let item = &self.map.items[x as usize + self.map.w * y as usize];
                 if item.is_some() {
@@ -541,34 +576,11 @@ impl Game {
                                 };
                                 pkts.push(diff.to_vec());
                             } else {
-                                self.map.items[x as usize + self.map.w * y as usize] = None;
-
-                                let diff = DestroyItem {
-                                    msg_type: String::from("destroy_item"),
-                                    w: x as u64,
-                                    h: y as u64,
-                                };
-                                pkts.push(diff.to_vec());
+                                self.remove_item(x, y);
                             }
                         },
                         _ => {}
                     }
-                }
-
-                // Destroy players
-                let mut p = 0;
-                for player in &mut self.map.players {
-                    if !player.dead
-                    && player.x as usize == x as usize
-                    && player.y as usize == y as usize {
-                        let diff = PlayerDie {
-                            msg_type: String::from("player_die"),
-                            id: p as u64,
-                        };
-                        pkts.push(diff.to_vec());
-                        player.dead = true;
-                    }
-                    p += 1;
                 }
             }
         };
@@ -578,9 +590,52 @@ impl Game {
         }
     }
 
+    pub fn update_end_anim(&mut self) {
+        if self.started + self.duration - Duration::from_secs(30) <= Instant::now() {
+            let duration_left = self.started + self.duration - Instant::now();
+            let squares_nb = self.map.h * self.map.w;
+            let interval = Duration::from_secs(30).as_millis() / squares_nb as u128;
+            let square = (
+                (
+                    (Duration::from_secs(30).as_millis() - duration_left.as_millis()) as f32
+                    / Duration::from_secs(30).as_millis() as f32
+                ) * interval as f32
+            ) as u32;
+
+            // TODO more animations
+
+            let x = square as usize % self.map.w;
+            let y = square as usize / self.map.w;
+            let linearized =
+                if y % 2 == 0 { (y / 2) * self.map.w + x }
+                else { squares_nb - 1 - ( y / 2 ) * self.map.w - x  };
+
+            if self.map.squares[linearized].sq_type == SquareType::Block {
+                return;
+            }
+
+            let x = (linearized % self.map.w) as u64;
+            let y = (linearized / self.map.w) as u64;
+
+            // The square is now a block
+            self.map.squares[linearized].sq_type = SquareType::Block;
+            let diff = UpdateSquare {
+                msg_type: String::from("update_square"),
+                square: SquareType::Block,
+                x,
+                y,
+            };
+            self.inform_players(&diff.to_vec());
+            self.remove_item(x as i32, y as i32);
+            self.kill_players(x as i32, y as i32);
+
+        }
+    }
+
     pub fn event_loop(&mut self) {
         self.execute_actions();
         self.eat_bonus_and_malus();
         self.bomb_events();
+        self.update_end_anim();
     }
 }

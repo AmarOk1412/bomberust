@@ -1,4 +1,5 @@
 use crate::bomber::gen::item::InteractiveItem;
+use crate::bomber::gen::utils::SquareType;
 use rmps::Serializer;
 use serde::Serialize;
 
@@ -90,6 +91,22 @@ pub struct CreateItem {
 }
 
 impl SerializedEvent for CreateItem {
+    fn to_vec(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        self.serialize(&mut Serializer::new(&mut buf)).unwrap();
+        buf
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct UpdateSquare {
+    pub msg_type: String,
+    pub square: SquareType,
+    pub x: u64,
+    pub y: u64,
+}
+
+impl SerializedEvent for UpdateSquare {
     fn to_vec(&self) -> Vec<u8> {
         let mut buf = Vec::new();
         self.serialize(&mut Serializer::new(&mut buf)).unwrap();
