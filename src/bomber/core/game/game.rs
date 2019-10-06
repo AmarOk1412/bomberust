@@ -99,7 +99,7 @@ impl Game {
             bombs: Vec::new(),
             game_player_to_player: HashMap::new(),
             started: Instant::now(),
-            duration: Duration::from_secs(30),
+            duration: Duration::from_secs(60 * 3),
             last_printed: Instant::now(),
             fps_instants: VecDeque::new(),
         }
