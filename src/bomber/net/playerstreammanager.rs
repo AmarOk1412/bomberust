@@ -33,7 +33,8 @@ use rmps::Deserializer;
 use rmps::decode::Error;
 use serde::Deserialize;
 use std::io::Cursor;
-use std::sync::{Arc, Mutex};
+use std::sync::{ Arc, Mutex };
+use std::time::{ Duration, Instant };
 
 /**
  * Contains the current datas
@@ -51,6 +52,7 @@ pub struct Stream {
     id: u64,
     pub data: Arc<Mutex<Option<Vec<u8>>>>,
     rtp_buf: RtpBuf,
+    last_pkt: Instant,
 }
 
 /**
@@ -89,7 +91,8 @@ impl PlayerStreamManager {
                 data: [0; 65536],
                 size: 0,
                 wanted: 0,
-            }
+            },
+            last_pkt: Instant::now()
         });
         self.current_id += 1;
         self.server.lock().unwrap().join_server(id, data);
@@ -121,11 +124,24 @@ impl PlayerStreamManager {
                 self.server.lock().unwrap().join_room(id, msg.room);
             } else if msg_type == "launch" {
                 self.server.lock().unwrap().launch_game(id);
-            } else if msg_type == "bomb" {
-                self.server.lock().unwrap().put_bomb(id);
-            } else if msg_type == "move" {
-                let msg: MoveMsg = Deserialize::deserialize(&mut de).unwrap_or(MoveMsg::new(Direction::North));
-                self.server.lock().unwrap().move_player(id, msg.direction);
+            } else {
+                // In game action
+                for s in &mut self.streams {
+                    // Anti flood a packet have 10 ms delay.
+                    if s.id == id {
+                        if s.last_pkt + Duration::from_millis(10) > Instant::now() {
+                            return;
+                        } else {
+                            s.last_pkt = Instant::now()
+                        }
+                    }
+                }
+                if msg_type == "bomb" {
+                    self.server.lock().unwrap().put_bomb(id);
+                } else if msg_type == "move" {
+                    let msg: MoveMsg = Deserialize::deserialize(&mut de).unwrap_or(MoveMsg::new(Direction::North));
+                    self.server.lock().unwrap().move_player(id, msg.direction);
+                }
             }
         }
     }

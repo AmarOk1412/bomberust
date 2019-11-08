@@ -190,9 +190,8 @@ impl Game {
                 self.inform_players(&diff.to_vec());
             },
             Action::Move(direction) => {
-                // TODO change increment (NOTE: if bomb under player, should be able to move)
                 let player = &mut self.map.players[player_id as usize];
-                let mut increment = 1.0 * (player.speed_factor as f32 / 1000.0);
+                let mut increment = 0.1 * (player.speed_factor as f32 / 1000.0);
                 let mut inverted = false;
                 for effect in &self.players[player_id as usize].effects {
                     if effect.malus.is_some() {
