@@ -33,8 +33,9 @@ use std::any::Any;
 pub struct BombItem;
 
 impl Walkable for BombItem {
-    fn walkable(&self, _p: &MapPlayer, _pos: &(usize, usize)) -> bool {
-        false
+    fn walkable(&self, p: &MapPlayer, pos: &(usize, usize)) -> bool {
+        // If the player is on the same square, return true. Else it's not walkable
+        p.x as usize == pos.0 && p.y as usize == pos.1
     }
 
     fn explode_event(&self, pos: &(usize, usize), bomb_pos: &(usize, usize)) -> (bool, bool) {
