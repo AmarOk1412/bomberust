@@ -238,7 +238,7 @@ impl Map {
                     to_check_pos.iter().find(|&&p| p == (x as usize, y as usize)) == None {
                         to_check_pos.push((x as usize, y as usize));
                     }
-                } else {
+                } else if self.squares[linearized_pos].sq_type != SquareType::Block {
                     return (x, y);
                 }
             }

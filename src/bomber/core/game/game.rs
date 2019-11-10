@@ -464,8 +464,12 @@ impl Game {
                     let px = bomb.pos.0 as i32 + (angle.cos() as i32 * pr);
                     let py = bomb.pos.1 as i32 + (angle.sin() as i32 * pr);
                     if bomb.exploding_info.as_ref().unwrap().blocked_pos.contains(&(px, py)) {
-                        continue;
+                        blocked = true;
+                        break;
                     }
+                }
+                if blocked {
+                    continue;
                 }
                 let (block, clear) = self.map.squares[pos.0 + self.map.w * pos.1].sq_type.explode_event(&(pos.0, pos.1), &bomb.pos);
                 blocked = block;
