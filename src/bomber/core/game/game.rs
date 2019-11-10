@@ -26,7 +26,6 @@
  **/
 
 use rand::Rng;
-use std::cmp::{max, min};
 use std::collections::{ HashMap, HashSet, VecDeque };
 use std::time::{Duration, Instant};
 use std::f64::consts::PI;
@@ -442,7 +441,7 @@ impl Game {
     }
 
     fn update_exploding_pos(&mut self, bomb_idx: usize) {
-        let mut bomb = &mut self.bombs[bomb_idx];
+        let bomb = &mut self.bombs[bomb_idx];
         let radius = bomb.exploding_info.as_ref().unwrap().radius;
         for r in 0..(radius + 1) {
             // TODO other than Cross

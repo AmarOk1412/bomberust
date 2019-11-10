@@ -29,9 +29,9 @@ use super::msg::*;
 use super::super::core::Server;
 use super::super::gen::utils::Direction;
 
-use rmps::Deserializer;
+use rmps::{ Serializer, Deserializer };
 use rmps::decode::Error;
-use serde::Deserialize;
+use serde::{ Serialize, Deserialize };
 use std::io::Cursor;
 use std::sync::{ Arc, Mutex };
 use std::time::{ Duration, Instant };
@@ -116,12 +116,62 @@ impl PlayerStreamManager {
             let cur = Cursor::new(&*pkt);
             let mut de = Deserializer::new(cur);
             if msg_type == "create" {
-                self.server.lock().unwrap().create_room(id);
+                let new_room_id = self.server.lock().unwrap().create_room(id);
+                if new_room_id != 0 {
+                    // Announce to player that they join the room
+                    let mut buf = Vec::new();
+                    let msg = JoinedMsg::new(new_room_id, true);
+                    msg.serialize(&mut Serializer::new(&mut buf)).unwrap();
+                    let len = buf.len() as u16;
+                    let mut send_buf : Vec<u8> = Vec::with_capacity(65536);
+                    send_buf.push((len >> 8) as u8);
+                    send_buf.push((len as u16 % (2 as u16).pow(8)) as u8);
+                    send_buf.append(&mut buf);
+
+                    for stream in &self.streams {
+                        if stream.id == id {
+                            *stream.data.lock().unwrap() = Some(send_buf.clone());
+                            break;
+                        }
+                    }
+                }
             } else if msg_type == "leave" {
-                self.server.lock().unwrap().leave_room(id);
+                let success = self.server.lock().unwrap().leave_room(id);
+                // Announce to player that they join the room
+                let mut buf = Vec::new();
+                let msg = JoinedMsg::new(0, success);
+                msg.serialize(&mut Serializer::new(&mut buf)).unwrap();
+                let len = buf.len() as u16;
+                let mut send_buf : Vec<u8> = Vec::with_capacity(65536);
+                send_buf.push((len >> 8) as u8);
+                send_buf.push((len as u16 % (2 as u16).pow(8)) as u8);
+                send_buf.append(&mut buf);
+
+                for stream in &self.streams {
+                    if stream.id == id {
+                        *stream.data.lock().unwrap() = Some(send_buf.clone());
+                        break;
+                    }
+                }
             } else if msg_type == "join" {
                 let msg: JoinMsg = Deserialize::deserialize(&mut de).unwrap_or(JoinMsg::new(0));
-                self.server.lock().unwrap().join_room(id, msg.room);
+                let success = self.server.lock().unwrap().join_room(id, msg.room);
+                // Announce to player that they join the room
+                let mut buf = Vec::new();
+                let msg = JoinedMsg::new(id, success);
+                msg.serialize(&mut Serializer::new(&mut buf)).unwrap();
+                let len = buf.len() as u16;
+                let mut send_buf : Vec<u8> = Vec::with_capacity(65536);
+                send_buf.push((len >> 8) as u8);
+                send_buf.push((len as u16 % (2 as u16).pow(8)) as u8);
+                send_buf.append(&mut buf);
+
+                for stream in &self.streams {
+                    if stream.id == id {
+                        *stream.data.lock().unwrap() = Some(send_buf.clone());
+                        break;
+                    }
+                }
             } else if msg_type == "launch" {
                 self.server.lock().unwrap().launch_game(id);
             } else {

@@ -119,3 +119,23 @@ impl MapMsg {
         }
     }
 }
+
+/**
+ * Message when a player join a room or lobby (room 0)
+ */
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+pub struct JoinedMsg {
+    pub msg_type: String,
+    pub room: u64,
+    pub success: bool
+}
+
+impl JoinedMsg {
+    pub fn new(room: u64, success: bool) -> JoinedMsg {
+        JoinedMsg {
+            room,
+            success,
+            msg_type: String::from("joined")
+        }
+    }
+}

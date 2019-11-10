@@ -149,11 +149,11 @@ impl Map {
             for angle in (offset..(360 + offset)).step_by(90) {
                 let angle = ((angle % 360) as f64 / 360.) * (2. * PI);
                 let x = current.0 as i32 + (angle.cos() as i32);
-                if (x < 0 || x >= self.w as i32) {
+                if x < 0 || x >= self.w as i32 {
                     continue;
                 }
                 let y = current.1 as i32 + (angle.sin() as i32);
-                if (y < 0 || y >= self.h as i32) {
+                if y < 0 || y >= self.h as i32 {
                     continue;
                 }
 
@@ -181,10 +181,10 @@ impl Map {
                     
                     // Check if different x && y
                     if !can_move_x {
-                        can_move_x = (x != p.x as i32); 
+                        can_move_x = x != p.x as i32;
                     }
                     if !can_move_y {
-                        can_move_y = (y != p.y as i32); 
+                        can_move_y = y != p.y as i32;
                     }
                     if can_move_x && can_move_y {
                         return true;
@@ -209,11 +209,11 @@ impl Map {
             for angle in (offset..(360 + offset)).step_by(90) {
                 let angle = ((angle % 360) as f64 / 360.) * (2. * PI);
                 let x = current.0 as i32 + (angle.cos() as i32);
-                if (x < 0 || x >= self.w as i32) {
+                if x < 0 || x >= self.w as i32 {
                     continue;
                 }
                 let y = current.1 as i32 + (angle.sin() as i32);
-                if (y < 0 || y >= self.h as i32) {
+                if y < 0 || y >= self.h as i32 {
                     continue;
                 }
 

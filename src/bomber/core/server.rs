@@ -27,6 +27,7 @@
 use super::super::gen::utils::Direction;
 use super::Room;
 use crate::serde::Serialize;
+
 use rmps::Serializer;
 use std::collections::HashMap;
 use std::sync::{ Arc, Mutex };
@@ -82,19 +83,19 @@ impl Server {
     /**
      * A player is creating a room. Add it to this room at the end
      * @param id    The player id
-     * @return      If the operation is successful
+     * @return      The id of the room created
      */
-    pub fn create_room(&mut self, id: u64) -> bool {
+    pub fn create_room(&mut self, id: u64) -> u64 {
         if !self.player_to_room.contains_key(&id) {
             warn!("Can't create room because player is not in the server");
-            return false;
+            return 0;
         }
 
         let room_id = self.player_to_room[&id];
 
         if room_id != 0 && !self.rooms.contains_key(&room_id) {
             warn!("Can't remove player from Room because rooms doesn't exists");
-            return false;
+            return 0;
         }
 
         if room_id == 0 {
@@ -119,7 +120,7 @@ impl Server {
             warn!("Client ({}) can't join room. Going to room ({})", id, 0);
         }
 
-        true
+        self.current_room_id
     }
 
     /**
