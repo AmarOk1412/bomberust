@@ -33,7 +33,7 @@ use serde::Serialize;
 use rmps::Serializer;
 
 pub trait Walkable {
-    fn walkable(&self, p: &MapPlayer, pos: &(usize, usize)) -> bool;
+    fn walkable(&self, p: &MapPlayer, pos: &(f32, f32)) -> bool;
 
     fn explode_event(&self, pos: &(usize, usize), bomb_pos: &(usize, usize)) -> (bool /* block */, bool /* destroy item */);
 }

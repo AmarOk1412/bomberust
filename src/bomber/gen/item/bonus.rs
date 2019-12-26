@@ -56,7 +56,7 @@ impl Distribution<Bonus> for Standard {
 }
 
 impl Walkable for Bonus {
-    fn walkable(&self, _p: &MapPlayer, _pos: &(usize, usize)) -> bool {
+    fn walkable(&self, _p: &MapPlayer, _pos: &(f32, f32)) -> bool {
         true
     }
 

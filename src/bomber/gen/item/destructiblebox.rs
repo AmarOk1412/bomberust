@@ -33,7 +33,7 @@ use std::any::Any;
 pub struct DestructibleBox;
 
 impl Walkable for DestructibleBox {
-    fn walkable(&self, _p: &MapPlayer, _pos: &(usize, usize)) -> bool {
+    fn walkable(&self, _p: &MapPlayer, _pos: &(f32, f32)) -> bool {
         false
     }
 

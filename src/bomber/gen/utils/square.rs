@@ -52,15 +52,15 @@ impl Distribution<SquareType> for Standard {
 }
 
 impl Walkable for SquareType {
-    fn walkable(&self, p: &MapPlayer, pos: &(usize, usize)) -> bool {
+    fn walkable(&self, p: &MapPlayer, pos: &(f32, f32)) -> bool {
         match self {
             SquareType::Empty => true,
             SquareType::Wall(w) => {
                 match w {
-                    Direction::West => p.x as usize >= pos.0,
-                    Direction::East => p.x as usize <= pos.0,
-                    Direction::North => p.y as usize <= pos.1,
-                    Direction::South => p.y as usize >= pos.1,
+                    Direction::West => p.x >= pos.0,
+                    Direction::East => p.x <= pos.0,
+                    Direction::North => p.y <= pos.1,
+                    Direction::South => p.y >= pos.1,
                 }
             },
             _ => false

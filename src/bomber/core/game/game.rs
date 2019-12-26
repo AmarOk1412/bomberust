@@ -58,7 +58,7 @@ pub struct Bomb {
     pub shape: Shape,
     pub created_time: Instant,
     pub duration: Duration,
-    pub pos: (usize, usize),
+    pub pos: (f32, f32),
     pub exploding_info: Option<ExplodingInfo>,
 }
 
@@ -177,7 +177,7 @@ impl Game {
                     shape: Shape::Cross,
                     created_time: Instant::now(),
                     duration: Duration::from_secs(3),
-                    pos: (player.x as usize, player.y as usize),
+                    pos: (player.x as usize as f32 + 0.5, player.y as usize as f32 + 0.5),
                     exploding_info: None,
                 });
                 let diff = PlayerPutBomb {
@@ -220,9 +220,9 @@ impl Game {
                 let mut walkable = self.map.items[x as usize + y as usize * self.map.w].is_none();
                 if !walkable {
                     walkable = self.map.items[x as usize + y as usize * self.map.w].as_ref().unwrap()
-                        .walkable(player, &(x as usize, y as usize));
+                        .walkable(player, &(x, y));
                 }
-                walkable &= self.map.squares[x as usize + y as usize * self.map.w].sq_type.walkable(player, &(x as usize, y as usize));
+                walkable &= self.map.squares[x as usize + y as usize * self.map.w].sq_type.walkable(player, &(x, y));
                 if walkable {
                     player.x = x;
                     player.y = y;
@@ -421,7 +421,7 @@ impl Game {
             exploding_radius = bomb.exploding_info.as_ref().unwrap().radius;
             if exploding_radius == bomb.radius as i32 {
                 // End of the bomb
-                self.map.items[bomb.pos.0 + self.map.w * bomb.pos.1] = None;
+                self.map.items[bomb.pos.0 as usize + self.map.w * bomb.pos.1 as usize] = None;
                 self.bombs.remove(bomb_idx);
                 return None;
             }
@@ -470,13 +470,15 @@ impl Game {
                 if blocked {
                     continue;
                 }
-                let (block, clear) = self.map.squares[pos.0 + self.map.w * pos.1].sq_type.explode_event(&(pos.0, pos.1), &bomb.pos);
+                let (block, clear) = self.map.squares[pos.0 + self.map.w * pos.1]
+                    .sq_type.explode_event(&(pos.0, pos.1), &(bomb.pos.0 as usize, bomb.pos.1 as usize));
                 blocked = block;
                 if !blocked {
                     let item = &self.map.items[pos.0 + self.map.w * pos.1];
                     if item.is_some() {
                         // TODO as_ref for moving blocked_pos
-                        let (iblock, _) = item.as_ref().unwrap().explode_event(&pos, &bomb.pos);
+                        let (iblock, _) = item.as_ref().unwrap()
+                            .explode_event(&pos, &(bomb.pos.0 as usize, bomb.pos.1 as usize));
                         blocked = iblock;
                     }
                 }

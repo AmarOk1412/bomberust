@@ -56,7 +56,7 @@ impl Distribution<Malus> for Standard {
 }
 
 impl Walkable for Malus {
-    fn walkable(&self, _p: &MapPlayer, _pos: &(usize, usize)) -> bool {
+    fn walkable(&self, _p: &MapPlayer, _pos: &(f32, f32)) -> bool {
         true
     }
 

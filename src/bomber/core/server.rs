@@ -298,9 +298,9 @@ impl Server {
             return false;
         }
 
-        self.rooms.get_mut(&room_id).unwrap().move_player(id, direction);
-
-        info!("Client ({}) moved {:?} in room ({})", id, direction, self.current_room_id);
+        if self.rooms.get_mut(&room_id).unwrap().move_player(id, direction) {
+            info!("Client ({}) moved {:?} in room ({})", id, direction, self.current_room_id);
+        }
 
         true
     }

@@ -183,6 +183,9 @@ impl Room {
             warn!("No game launched, so cannot put bomb");
             return false;
         }
+        if self.game.as_ref().unwrap().lock().unwrap().finished() {
+            return false;
+        }
         let gid = self.player_id_to_game_id(id);
         if gid.is_none() {
             return false;

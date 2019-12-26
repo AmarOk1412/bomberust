@@ -115,7 +115,7 @@ impl Map {
                 }
                 player.x = posx as f32 + 0.5;
                 player.y = posy as f32 + 0.5;
-                if squares[posx + posy * w].sq_type.walkable(&player, &(posx, posy)) {
+                if squares[posx + posy * w].sq_type.walkable(&player, &(posx as f32, posy as f32)) {
                     valid_pos = true;
                 }
             }
@@ -169,10 +169,10 @@ impl Map {
                 };
 
                 let walkable_item = match &self.items[linearized_pos] {
-                    Some(i) => i.walkable(&tp, &(x as usize, y as usize)),
+                    Some(i) => i.walkable(&tp, &(x as f32, y as f32)),
                     None => true
                 };
-                if self.squares[linearized_pos].sq_type.walkable(&tp, &(x as usize, y as usize)) && walkable_item {
+                if self.squares[linearized_pos].sq_type.walkable(&tp, &(x as f32, y as f32)) && walkable_item {
                     // Add to safe
                     if checked_pos.iter().find(|&&p| p == (x as usize, y as usize)) == None &&
                     to_check_pos.iter().find(|&&p| p == (x as usize, y as usize)) == None {
@@ -229,10 +229,10 @@ impl Map {
                 };
 
                 let walkable_item = match &self.items[linearized_pos] {
-                    Some(i) => i.walkable(&tp, &(x as usize, y as usize)),
+                    Some(i) => i.walkable(&tp, &(x as f32, y as f32)),
                     None => true
                 };
-                if self.squares[linearized_pos].sq_type.walkable(&tp, &(x as usize, y as usize)) && walkable_item {
+                if self.squares[linearized_pos].sq_type.walkable(&tp, &(x as f32, y as f32)) && walkable_item {
                     // Add to safe
                     if checked_pos.iter().find(|&&p| p == (x as usize, y as usize)) == None &&
                     to_check_pos.iter().find(|&&p| p == (x as usize, y as usize)) == None {
