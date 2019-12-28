@@ -29,7 +29,9 @@ pub mod player;
 pub mod room;
 pub mod server;
 pub mod game;
+pub mod ia;
 
 pub use player::Player;
 pub use room::Room;
 pub use server::Server;
+pub use ia::*;

@@ -29,8 +29,10 @@ use rand::Rng;
 use std::collections::{ HashMap, HashSet, VecDeque };
 use std::time::{Duration, Instant};
 use std::f64::consts::PI;
+use std::fmt;
 
 use crate::bomber::core::Player;
+use crate::bomber::core::ia::NeuralNetwork;
 use crate::bomber::gen::{Map, item::*, utils::*};
 use crate::bomber::net::diff_msg::*;
 
@@ -71,7 +73,10 @@ pub struct Game {
     duration: Duration,
     players_len: u32,
     last_printed: Instant,
-    fps_instants: VecDeque<Instant>
+    fps_instants: VecDeque<Instant>,
+    // IA
+    train_bot: bool,
+    nns: Vec<NeuralNetwork>
 }
 
 #[derive(Clone)]
@@ -80,16 +85,46 @@ pub enum Action {
     Move(Direction),
 }
 
+impl std::fmt::Display for Action {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Action::PutBomb => {
+                return write!(f, "Action::PutBomb");
+            },
+            Action::Move(d) => {
+                match d {
+                    Direction::North => {
+                        return write!(f, "Action::Move(North)");
+                    },
+                    Direction::East => {
+                        return write!(f, "Action::Move(East)");
+                    },
+                    Direction::West => {
+                        return write!(f, "Action::Move(West)");
+                    },
+                    Direction::South => {
+                        return write!(f, "Action::Move(South)");
+                    },
+                }
+            }
+        }
+    }
+}
+
 impl Game {
     pub fn new() -> Game {
         let map = Map::new(13, 11);
         let mut players = Vec::new();
+        let mut nns = Vec::new();
         for id in 0..4 {
             players.push(GamePlayer {
                 id,
                 actions: Vec::new(),
                 effects: Vec::new()
             });
+            
+            let nn = NeuralNetwork::new(vec![7*4 + 3*13*11,732,64,7]);
+            nns.push(nn);
         }
         Game {
             map,
@@ -101,6 +136,8 @@ impl Game {
             duration: Duration::from_secs(60 * 3),
             last_printed: Instant::now(),
             fps_instants: VecDeque::new(),
+            train_bot: true,
+            nns
         }
     }
 
@@ -111,6 +148,7 @@ impl Game {
 
 
     pub fn push_action(&mut self, action: Action, player_id: u64) {
+        println!("{} {}", player_id, action);
         self.players[player_id as usize].actions.push(action);
     }
 
@@ -145,6 +183,9 @@ impl Game {
                 deads += 1;
             }
             idx += 1;
+        }
+        if self.train_bot {
+            return deads >= self.players.len();
         }
         deads >= self.game_player_to_player.len()
     }
@@ -646,7 +687,113 @@ impl Game {
         }
     }
 
+    fn calc_inputs(&self) -> Vec<Vec<f32>> {
+        let mut res = Vec::<Vec<f32>>::with_capacity(self.players_len as usize);
+        let mut common = Vec::new();
+        
+        let mut x = 0;
+        for sq in &self.map.squares {
+            match sq.sq_type {
+                SquareType::Water => common.push(0.1),
+                SquareType::Empty => {
+                    match &self.map.items[x] {
+                        Some(i) => {
+                            if i.name() == "DestructibleBox" {
+                                common.push(0.5);
+                            } else if i.name() == "Bomb" {
+                                common.push(0.2); // Considered as empty, will be later
+                            } else if i.name() == "Bonus" {
+                                common.push(0.4);
+                            } else if i.name() == "Malus" {
+                                common.push(0.3);
+                            } else {
+                                common.push(0.2);
+                            }
+                        }
+                        _ => common.push(0.2)
+                    }
+                },
+                SquareType::Block => common.push(0.9),
+                SquareType::Wall(d) => {
+                    match d {
+                        Direction::North => common.push(0.6),
+                        Direction::South => common.push(0.7),
+                        Direction::West  => common.push(0.8),
+                        Direction::East  => common.push(0.9),
+                    }
+                }
+            }
+            x += 1;
+        }
+
+        let mut bomb_vec = vec![0.0; x * 2];
+        for bomb in &self.bombs {
+            let linearized = bomb.pos.0 as usize + bomb.pos.1 as usize * self.map.w as usize;
+            let now = Instant::now();
+            if bomb.created_time + bomb.duration > now {
+                bomb_vec[linearized] = (bomb.created_time + bomb.duration - now).as_millis() as f32;
+            }
+            bomb_vec[x + linearized] = bomb.radius as f32;
+        }
+
+        for p in 0..self.players_len {
+            let mut player_vec = vec![0.0; 7];
+            if !self.map.players[p as usize].dead {
+                player_vec[0] = self.map.w as f32;
+                player_vec[1] = self.map.h as f32;
+                player_vec[2] = self.map.players[p as usize].x;
+                player_vec[3] = self.map.players[p as usize].y;
+                player_vec[4] = self.map.players[p as usize].bomb as f32;
+                // TODO push + repel
+            }
+            res.push(player_vec);
+        }
+
+        for p in 0..self.players_len {
+            for i in 0..self.players_len {
+                if p != i {
+                    let other = res[i as usize][..7].to_vec();
+                    res[p as usize].extend(other);
+                }
+            }
+            res[p as usize].extend(common.clone());
+            res[p as usize].extend(bomb_vec.clone());
+        }
+        res
+    }
+
+    fn calc_output(&mut self, pid: u64, inputs: Vec<f32>) {
+        let actions = self.nns[pid as usize].clone().calc(inputs);
+        let mut action_idx = 0;
+        let mut previous_max = actions[0];
+        for a in 1..actions.len() {
+            if actions[a] > previous_max {
+                action_idx = a;
+                previous_max = actions[a];
+            }
+        }
+
+        match action_idx {
+            0 => { self.push_action(Action::Move(Direction::North), pid); },
+            1 => { self.push_action(Action::Move(Direction::West), pid); },
+            2 => { self.push_action(Action::Move(Direction::East), pid); },
+            3 => { self.push_action(Action::Move(Direction::South), pid); },
+            4 => { self.push_action(Action::PutBomb, pid); },
+            5 => {},
+            6 => {},
+            _ => {
+                error!("INCORRECT ID");
+            }
+        }
+    }
+
     pub fn event_loop(&mut self) {
+        if self.train_bot {
+            let bot_inputs = self.calc_inputs();
+            for i in 0..bot_inputs.len() {
+                self.calc_output(self.players[i].id as u64, bot_inputs[i].clone());
+            }
+        }
         self.execute_actions();
         self.eat_bonus_and_malus();
         self.bomb_events();
