@@ -32,6 +32,12 @@ use rmps::Serializer;
 use std::collections::HashMap;
 use std::sync::{ Arc, Mutex };
 
+use super::ia::NeuralNetwork;
+use super::game::*;
+use std::thread;
+use std::time::Duration;
+use rand::Rng;
+
 pub type PlayerStream = Arc<Mutex<Option<Vec<u8>>>>;
 pub type GameStream = Arc<Mutex<Vec<Vec<u8>>>>;
 struct Stream {
@@ -55,6 +61,54 @@ impl Server {
      * Create a new Server
      */
     pub fn new() -> Server {
+        let mut current_generation = Vec::<(i32, NeuralNetwork)>::with_capacity(100);
+        println!("Generate population");
+        let mut rng = rand::thread_rng();
+        for _ in 0..100 {
+            let nn = NeuralNetwork::new(vec![7*4 + 3*13*11,732,64,7]);
+            current_generation.push((0, nn));
+        }
+        let mut generation = 0;
+        loop {
+            generation += 1;
+            for g in 0..25 {
+                println!("Generation: {} - Game: {}", generation, g);
+                let players = current_generation[(g*4)..(g*4+4)].to_vec();
+                let mut game = Game::new(players);
+                game.start();
+                while !game.finished() {
+                    game.event_loop();
+                    thread::sleep(Duration::from_nanos(1));
+                }
+                for j in 0..4 {
+                    current_generation[(g*4)+j].0 = game.scores[j];
+                    println!("New score: {}", game.scores[j]);
+                }
+            }
+            current_generation.sort_by(|a,b| b.0.cmp(&a.0));
+            println!("Best score: {}", current_generation[0].0);
+
+            // Generating the new generation
+            println!("Generate new population");
+            let mut new_generation = current_generation[0..10].to_vec();
+            for n in 0..10 {
+                for n2 in 0..9 {
+                    let nn = current_generation[n2].1.clone();
+                    new_generation.push((0, current_generation[n].1.cross(&nn)));
+                }
+            }
+
+            println!("Mutate population");
+            for i in 0..100 {
+                if rng.gen_range(0, 100) <= 5 {
+                    new_generation[i].1.mutate();
+                }
+            }
+
+            current_generation = new_generation;
+        }
+
+
         Server {
             lobby: Room::new(),
             rooms: HashMap::new(),

@@ -115,7 +115,7 @@ impl Room {
             warn!("Game already launched");
             return false;
         }
-        let game = Arc::new(Mutex::new(Game::new()));
+        let game = Arc::new(Mutex::new(Game::new(Vec::new())));
         for (pid, player) in &mut self.players {
             let gid = game.lock().unwrap().link_player(player.clone());
             if gid.is_none() {

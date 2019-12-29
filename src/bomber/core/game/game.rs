@@ -75,8 +75,10 @@ pub struct Game {
     last_printed: Instant,
     fps_instants: VecDeque<Instant>,
     // IA
-    train_bot: bool,
-    nns: Vec<NeuralNetwork>
+    pub train_bot: bool,
+    pub nns: Vec<(i32, NeuralNetwork)>,
+    pub scores: Vec<i32>,
+    last_increase: u32
 }
 
 #[derive(Clone)]
@@ -112,10 +114,10 @@ impl std::fmt::Display for Action {
 }
 
 impl Game {
-    pub fn new() -> Game {
+    pub fn new(nns: Vec<(i32, NeuralNetwork)>) -> Game {
         let map = Map::new(13, 11);
         let mut players = Vec::new();
-        let mut nns = Vec::new();
+        let mut scores = Vec::new();
         for id in 0..4 {
             players.push(GamePlayer {
                 id,
@@ -123,8 +125,7 @@ impl Game {
                 effects: Vec::new()
             });
             
-            let nn = NeuralNetwork::new(vec![7*4 + 3*13*11,732,64,7]);
-            nns.push(nn);
+            scores.push(0);
         }
         Game {
             map,
@@ -137,7 +138,9 @@ impl Game {
             last_printed: Instant::now(),
             fps_instants: VecDeque::new(),
             train_bot: true,
-            nns
+            nns,
+            scores,
+            last_increase: 0,
         }
     }
 
@@ -148,7 +151,6 @@ impl Game {
 
 
     pub fn push_action(&mut self, action: Action, player_id: u64) {
-        println!("{} {}", player_id, action);
         self.players[player_id as usize].actions.push(action);
     }
 
@@ -185,7 +187,7 @@ impl Game {
             idx += 1;
         }
         if self.train_bot {
-            return deads >= self.players.len();
+            return self.last_increase == 100 || deads >= self.players.len();
         }
         deads >= self.game_player_to_player.len()
     }
@@ -227,6 +229,8 @@ impl Game {
                     x: player.x as usize,
                     y: player.y as usize,
                 };
+                self.scores[player_id as usize] += 2;
+                self.last_increase = 0;
                 self.inform_players(&diff.to_vec());
             },
             Action::Move(direction) => {
@@ -273,6 +277,8 @@ impl Game {
                         x,
                         y,
                     };
+                    self.scores[player_id as usize] += 1;
+                    self.last_increase = 0;
                     self.inform_players(&diff.to_vec());
                 }
             }
@@ -331,6 +337,8 @@ impl Game {
             let bonus = self.map.items[p.x as usize + self.map.w * p.y as usize].as_ref().unwrap().as_any().downcast_ref::<Bonus>();
             let mut inform = false;
             if bonus.is_some() {
+                self.scores[idx as usize] += 10;
+                self.last_increase = 0;
                 inform = true;
                 match bonus.unwrap() {
                     Bonus::ImproveBombRadius => {
@@ -372,6 +380,8 @@ impl Game {
                 .as_ref().unwrap().as_any().downcast_ref::<Malus>();
             if malus.is_some() {
                 inform = true;
+                self.scores[idx as usize] -= 10;
+                self.last_increase = 0;
                 match malus.unwrap() {
                     Malus::Slow => {
                         info!("Player {} is now slow", idx);
@@ -451,6 +461,9 @@ impl Game {
     }
 
     fn update_exploding_radius(&mut self, bomb_idx: usize) -> Option<i32> {
+        if bomb_idx >= self.bombs.len() {
+            return None;
+        }
         let mut bomb = &mut self.bombs[bomb_idx];
 
         // Explode
@@ -562,6 +575,19 @@ impl Game {
                 };
                 pkts.push(diff.to_vec());
                 player.dead = true;
+
+                
+                for bomb in &self.bombs {
+                    if bomb.pos.0 as i32 == x && bomb.pos.1 as i32 == y {
+                        if bomb.creator_id != p {
+                            self.scores[bomb.creator_id as usize] += 100;
+                        } else {
+                            self.scores[p as usize] -= 50;
+                        }
+                    }
+                }
+                self.scores[p as usize] -= 100;
+                self.last_increase = 0;
             }
             p += 1;
         }
@@ -608,6 +634,10 @@ impl Game {
                     let db = self.map.items[x as usize + self.map.w * y as usize].as_ref().unwrap().as_any().downcast_ref::<DestructibleBox>();
                     match db {
                         Some(_) => {
+                            let bomb = &mut self.bombs[bomb_idx];
+                            self.scores[bomb.creator_id as usize] += 20;
+                            self.last_increase = 0;
+
                             let mut rng = rand::thread_rng();
                             let prob = rng.gen_range(0, 5);
                             if prob == 1 || prob == 2 {
@@ -763,7 +793,7 @@ impl Game {
     }
 
     fn calc_output(&mut self, pid: u64, inputs: Vec<f32>) {
-        let actions = self.nns[pid as usize].clone().calc(inputs);
+        let actions = self.nns[pid as usize].1.clone().calc(inputs);
         let mut action_idx = 0;
         let mut previous_max = actions[0];
         for a in 1..actions.len() {
@@ -793,6 +823,7 @@ impl Game {
             for i in 0..bot_inputs.len() {
                 self.calc_output(self.players[i].id as u64, bot_inputs[i].clone());
             }
+            self.last_increase += 1;
         }
         self.execute_actions();
         self.eat_bonus_and_malus();

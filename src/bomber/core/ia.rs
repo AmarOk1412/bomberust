@@ -169,4 +169,25 @@ impl NeuralNetwork {
 
         result
     }
+
+    pub fn mutate(&mut self) {
+        let mut rng = rand::thread_rng();
+        for i in 0..self.neurons_len {
+            if rng.gen_range(0, 100) <= 5 {
+                let inputs_len = self.neurons[i].weights.len();
+                self.neurons[i] = Neuron::new(inputs_len);
+            }
+        }
+    }
+
+    pub fn cross(&mut self, other: &NeuralNetwork) -> NeuralNetwork {
+        let result = self.clone();
+        let mut rng = rand::thread_rng();
+        for i in 0..self.neurons_len {
+            if rng.gen_range(0, 100) < 50 {
+                self.neurons[i] = other.neurons[i].clone();
+            }
+        }
+        result
+    }
 }
