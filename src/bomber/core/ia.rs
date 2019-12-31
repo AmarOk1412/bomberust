@@ -29,7 +29,7 @@ use rand::Rng;
 /**
  * Represents a neuron. Take inputs, apply weights, return the sigmoid result (between 0 and 1)
  */
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Neuron {
     pub weights: Vec<f32>,
 }
@@ -91,7 +91,7 @@ impl Neuron {
 /**
  * Represent a single depth neural network
  */
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct NeuralNetwork {
     pub structure: Vec<usize>,
     pub neurons: Vec<Neuron>,

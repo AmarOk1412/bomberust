@@ -37,6 +37,10 @@ use super::game::*;
 use std::thread;
 use std::time::Duration;
 use rand::Rng;
+use std::fs::File;
+use std::io::prelude::*;
+use std::fs;
+use std::path::Path;
 
 pub type PlayerStream = Arc<Mutex<Option<Vec<u8>>>>;
 pub type GameStream = Arc<Mutex<Vec<Vec<u8>>>>;
@@ -61,32 +65,85 @@ impl Server {
      * Create a new Server
      */
     pub fn new() -> Server {
+        Server {
+            lobby: Room::new(),
+            rooms: HashMap::new(),
+            player_to_room: HashMap::new(),
+            current_room_id: 0,
+            player_to_stream: HashMap::new(),
+        }
+    }
+
+    pub fn train() {
         let mut current_generation = Vec::<(i32, NeuralNetwork)>::with_capacity(100);
         println!("Generate population");
         let mut rng = rand::thread_rng();
-        for _ in 0..100 {
-            let nn = NeuralNetwork::new(vec![7*4 + 3*13*11,732,64,7]);
-            current_generation.push((0, nn));
+        for i in 0..100 {
+            let path = format!("ia_data/nn_{}.nn", i);
+            if Path::new(&*path).exists() {
+                println!("Using saved neural network for nn {}", i);
+                let nn : NeuralNetwork = serde_json::from_str(&*fs::read_to_string(&*path).unwrap()).unwrap();
+                current_generation.push((0, nn));
+            } else {
+                let nn = NeuralNetwork::new(vec![7*4 + 3*13*11,/*732,64*/500,7]);
+                current_generation.push((0, nn));
+            }
         }
         let mut generation = 0;
+        let mut game = Game::new();
+        if Path::new("ia_data/game").exists() {
+            game.map = serde_json::from_str(&*fs::read_to_string("ia_data/game").unwrap()).unwrap();
+        } else {
+            let serialized_map = serde_json::to_string(&game.map).unwrap();
+            let _ = fs::create_dir("ia_data");
+            let _ = fs::write("ia_data/game", &*serialized_map);
+        }
         loop {
             generation += 1;
+            let mut max_score = 0;
+            let mut max_score_idx = 0;
             for g in 0..25 {
                 println!("Generation: {} - Game: {}", generation, g);
+                let mut game_cloned = game.clone();
                 let players = current_generation[(g*4)..(g*4+4)].to_vec();
-                let mut game = Game::new(players);
-                game.start();
-                while !game.finished() {
-                    game.event_loop();
+                game_cloned.nns = players;
+                game_cloned.start();
+                while !game_cloned.finished() {
+                    game_cloned.event_loop();
                     thread::sleep(Duration::from_nanos(1));
                 }
                 for j in 0..4 {
-                    current_generation[(g*4)+j].0 = game.scores[j];
-                    println!("New score: {}", game.scores[j]);
+                    current_generation[(g*4)+j].0 = game_cloned.scores[j];
+                    println!("New score: {}", game_cloned.scores[j]);
+                    if max_score < game_cloned.scores[j] {
+                        max_score = game_cloned.scores[j];
+                        max_score_idx = g;
+                    }
                 }
             }
+
+            // Save current state
+            if generation % 10 == 1 {
+                println!("Save current state");
+                for i in 0..4 {
+                    let serialized_nn = serde_json::to_string(&current_generation[(max_score_idx*4)+i].1).unwrap();
+                    let path = format!("ia_data/{}_best_game_{}.nn", generation, i);
+                    let _ = fs::write(&*path, &*serialized_nn);
+                    let path = format!("ia_data/best_game_{}.nn", i);
+                    let _ = fs::write(&*path, &*serialized_nn);
+                }
+            }
+
             current_generation.sort_by(|a,b| b.0.cmp(&a.0));
             println!("Best score: {}", current_generation[0].0);
+
+            if generation % 10 == 1 {
+                for i in 0..100 {
+                    let path = format!("ia_data/nn_{}.nn", i);
+                    let serialized_nn = serde_json::to_string(&current_generation[i].1).unwrap();
+                    let _ = fs::write(&*path, &*serialized_nn);
+                }
+            }
 
             // Generating the new generation
             println!("Generate new population");
@@ -106,15 +163,6 @@ impl Server {
             }
 
             current_generation = new_generation;
-        }
-
-
-        Server {
-            lobby: Room::new(),
-            rooms: HashMap::new(),
-            player_to_room: HashMap::new(),
-            current_room_id: 0,
-            player_to_stream: HashMap::new(),
         }
     }
 
@@ -289,7 +337,24 @@ impl Server {
             return false;
         }
 
-        self.rooms.get_mut(&room_id).unwrap().launch_game(id);
+        let mut game = Game::new();
+        if Path::new("ia_data/game").exists() {
+            game.map = serde_json::from_str(&*fs::read_to_string("ia_data/game").unwrap()).unwrap();
+            let mut nns = Vec::<(i32, NeuralNetwork)>::with_capacity(4);
+            for i in 0..4 {
+                let path = format!("ia_data/best_game_{}.nn", i);
+                if Path::new(&*path).exists() {
+                    println!("Using saved neural network");
+                    let nn : NeuralNetwork = serde_json::from_str(&*fs::read_to_string(&*path).unwrap()).unwrap();
+                    nns.push((0, nn));
+                } else {
+                    let nn = NeuralNetwork::new(vec![7*4 + 3*13*11,/*732,64*/500,7]);
+                    nns.push((0, nn));
+                }
+            }
+            game.nns = nns;
+        }
+        self.rooms.get_mut(&room_id).unwrap().launch_game(id, Some(game));
 
         info!("Client ({}) launched game in room ({})", id, self.current_room_id);
 

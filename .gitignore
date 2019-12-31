@@ -2,3 +2,4 @@
 **/*.rs.bk
 *.lock
 keys
+ia_data/

@@ -64,6 +64,7 @@ pub struct Bomb {
     pub exploding_info: Option<ExplodingInfo>,
 }
 
+#[derive(Clone)]
 pub struct Game {
     pub map: Map,
     pub players: Vec<GamePlayer>,
@@ -114,7 +115,7 @@ impl std::fmt::Display for Action {
 }
 
 impl Game {
-    pub fn new(nns: Vec<(i32, NeuralNetwork)>) -> Game {
+    pub fn new() -> Game {
         let map = Map::new(13, 11);
         let mut players = Vec::new();
         let mut scores = Vec::new();
@@ -138,7 +139,7 @@ impl Game {
             last_printed: Instant::now(),
             fps_instants: VecDeque::new(),
             train_bot: true,
-            nns,
+            nns: Vec::new(),
             scores,
             last_increase: 0,
         }

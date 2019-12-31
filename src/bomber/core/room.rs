@@ -28,6 +28,7 @@ use super::Player;
 use super::game::{Action, Game};
 use super::server::GameStream;
 use super::super::gen::utils::Direction;
+use super::super::gen::map::Map;
 
 use crate::bomber::net::msg::*;
 
@@ -110,12 +111,16 @@ impl Room {
      * @param id    The player id who launch the game
      * @return      If the operation is successful
      */
-    pub fn launch_game(&mut self, id: u64) -> bool {
+    pub fn launch_game(&mut self, id: u64, opt_game: Option<Game>) -> bool {
         if self.game.is_some() && !self.game.as_ref().unwrap().lock().unwrap().finished() {
             warn!("Game already launched");
             return false;
         }
-        let game = Arc::new(Mutex::new(Game::new(Vec::new())));
+        let mut game = Game::new();
+        if opt_game.is_some() {
+            game = opt_game.unwrap();
+        }
+        let game = Arc::new(Mutex::new(game));
         for (pid, player) in &mut self.players {
             let gid = game.lock().unwrap().link_player(player.clone());
             if gid.is_none() {

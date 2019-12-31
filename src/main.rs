@@ -31,6 +31,7 @@ extern crate log;
 extern crate futures;
 extern crate rand;
 extern crate serde;
+extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
 extern crate typetag;
@@ -64,6 +65,10 @@ fn main() {
         };
         TlsServer::start(&config);
     });
+    let train_thread = thread::spawn(move || {
+        Server::train();
+    });
 
     let _ = server_thread.join();
+    let _ = train_thread.join();
 }
