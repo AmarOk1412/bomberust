@@ -60,6 +60,7 @@ pub struct Bomb {
     pub duration: Duration,
     pub pos: (f32, f32),
     pub exploding_info: Option<ExplodingInfo>,
+    pub moving_dir: Option<Direction>
 }
 
 pub struct Game {
@@ -71,6 +72,7 @@ pub struct Game {
     duration: Duration,
     players_len: u32,
     last_printed: Instant,
+    last_update_bomb: Instant,
     fps_instants: VecDeque<Instant>
 }
 
@@ -100,6 +102,7 @@ impl Game {
             started: Instant::now(),
             duration: Duration::from_secs(60 * 3),
             last_printed: Instant::now(),
+            last_update_bomb: Instant::now(),
             fps_instants: VecDeque::new(),
         }
     }
@@ -107,6 +110,7 @@ impl Game {
     pub fn start(&mut self) {
         self.started = Instant::now();
         self.last_printed = Instant::now();
+        self.last_update_bomb = Instant::now();
     }
 
 
@@ -179,6 +183,7 @@ impl Game {
                     duration: Duration::from_secs(3),
                     pos: (player.x as usize as f32 + 0.5, player.y as usize as f32 + 0.5),
                     exploding_info: None,
+                    moving_dir: None,
                 });
                 let diff = PlayerPutBomb {
                     msg_type: String::from("player_put_bomb_diff"),
@@ -219,6 +224,22 @@ impl Game {
                 }
                 let mut walkable = self.map.items[x as usize + y as usize * self.map.w].is_none();
                 if !walkable {
+                    // Manage bomb repelling if player is near a bomb
+                    if self.map.items[x as usize + y as usize * self.map.w].as_ref().unwrap().name() == "Bomb" {
+                        for effect in &self.players[player_id as usize].effects {
+                            if effect.bonus == Some(Bonus::RepelBombs) {
+                                for b in &mut self.bombs {
+                                    if b.moving_dir.is_none() && b.pos.0 as usize == x as usize && b.pos.1 as usize == y as usize {
+                                        if player_id as usize == b.creator_id as usize && b.pos.0 as usize == player.x as usize && b.pos.1 as usize == player.y as usize {
+                                            // New bomb
+                                            continue;
+                                        }
+                                        b.moving_dir = Some(direction);
+                                    }
+                                }
+                            }
+                        }
+                    }
                     walkable = self.map.items[x as usize + y as usize * self.map.w].as_ref().unwrap()
                         .walkable(player, &(x, y));
                 }
@@ -316,7 +337,6 @@ impl Game {
                             malus: None,
                             bonus: Some(Bonus::RepelBombs)
                         });
-                        error!("TODO");
                     },
                     Bonus::MoreBombs => {
                         info!("Player {} have more bombs", idx);
@@ -646,10 +666,83 @@ impl Game {
         }
     }
 
+    fn update_bomb_position(&mut self) {
+        // The speed should be 2 squares/seconds
+        if self.last_update_bomb + Duration::from_millis(50) > Instant::now() {
+            return;
+        }
+        let mut diffs = Vec::<BombMove>::new();
+        for b in &mut self.bombs {
+            if b.moving_dir.is_none() || b.exploding_info.is_some() {
+                continue;
+            }
+            let direction = b.moving_dir.unwrap();
+            let increment = 0.1;
+            let mut x = b.pos.0;
+            let mut y = b.pos.1;
+            match direction {
+                Direction::North => y -= increment,
+                Direction::South => y += increment,
+                Direction::West => x -= increment,
+                Direction::East => x += increment,
+            }
+            if (x as i32) < 0 || (x as usize) >= self.map.w
+                || (y as i32) < 0 || (y as usize) >= self.map.h {
+                continue;
+            }
+            let mut walkable = x as usize == b.pos.0 as usize && y as usize == b.pos.1 as usize;
+            if !walkable {
+                let fake_player = MapPlayer {
+                    x: b.pos.0, y: b.pos.1, radius: 0, speed_factor: 0, bomb: 0, dead: false,
+                };
+                // Items should not be a bomb or a box
+                walkable = self.map.items[x as usize + y as usize * self.map.w].is_none()
+                         || self.map.items[x as usize + y as usize * self.map.w].as_ref().unwrap().walkable(&fake_player, &(x, y));
+                // Else square should be empty
+                walkable &= self.map.squares[x as usize + y as usize * self.map.w].sq_type.walkable(&fake_player, &(x, y));
+                // Players should not be here
+                for p in &self.map.players {
+                    if p.dead {
+                        continue;
+                    }
+                    if p.x as usize == x as usize && p.y as usize == y as usize {
+                        walkable &= false;
+                    }
+                }
+            }
+            if (x as i32) < 0 || (x as usize) >= self.map.w
+                || (y as i32) < 0 || (y as usize) >= self.map.h {
+                b.moving_dir = None;
+                continue;
+            }
+            if walkable {
+                if b.pos.0 as usize != x as usize || b.pos.1 as usize != y as usize {
+                    self.map.items[x as usize + y as usize * self.map.w] = Some(Box::new(BombItem {}));
+                    self.map.items[b.pos.0 as usize + b.pos.1 as usize * self.map.w] = None;
+                }
+                diffs.push(BombMove {
+                    msg_type: String::from("bomb_move_diff"),
+                    old_x: b.pos.0,
+                    old_y: b.pos.1,
+                    x,
+                    y,
+                });
+                b.pos = (x,y);
+            } else {
+                b.moving_dir = None;
+            }
+        }
+        for diff in diffs {
+            self.inform_players(&diff.to_vec());
+        }
+        self.last_update_bomb = Instant::now();
+    }
+
     pub fn event_loop(&mut self) {
         self.execute_actions();
         self.eat_bonus_and_malus();
         self.bomb_events();
         self.update_end_anim();
+        self.update_bomb_position();
     }
 }
