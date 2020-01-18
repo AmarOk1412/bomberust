@@ -174,13 +174,21 @@ impl Game {
                     info!("Player {} already launch all the bomb", player_id);
                     return;
                 }
+                let mut bomb_duration = Duration::from_secs(3);
+                for effect in &self.players[player_id as usize].effects {
+                    if effect.malus.is_some() {
+                        if effect.malus == Some(Malus::SpeedBomb) {
+                            bomb_duration = Duration::from_secs_f32(1.8);
+                        }
+                    }
+                }
                 self.map.items[player.x as usize + player.y as usize * self.map.w] = Some(Box::new(BombItem {}));
                 self.bombs.push(Bomb {
                     creator_id: player_id as u32,
                     radius: player.radius as usize,
                     shape: Shape::Cross,
                     created_time: Instant::now(),
-                    duration: Duration::from_secs(3),
+                    duration: bomb_duration,
                     pos: (player.x as usize as f32 + 0.5, player.y as usize as f32 + 0.5),
                     exploding_info: None,
                     moving_dir: None,
@@ -375,7 +383,6 @@ impl Game {
                             malus: Some(Malus::SpeedBomb),
                             bonus: None,
                         });
-                        error!("TODO");
                     },
                     Malus::DropBombs => {
                         info!("Player {} drop bombs as fast as they can", idx);
@@ -384,7 +391,6 @@ impl Game {
                             malus: Some(Malus::DropBombs),
                             bonus: None,
                         });
-                        error!("TODO");
                     },
                     Malus::InvertedControls => {
                         info!("Player {} have inverted controls", idx);
